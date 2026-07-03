@@ -149,3 +149,43 @@ Returns `{"status": "ok"}`. Used by Render for health checks.
 ## Korea NTB API key
 
 Register at [data.go.kr](https://www.data.go.kr) and apply for the dataset **15158994** (Korea NTB Technology Information). The key is issued within 1-2 business days. Keep it out of version control — use the `.env` file locally and Render's secret env vars in production.
+
+---
+
+## Security & secrets — read this before touching auth/CORS/rate limits
+
+**Secrets are never committed to this repo.** `.env` is gitignored (see `.gitignore`) and has never appeared in git history — verify this at any time with:
+
+```bash
+git log --all --full-history -- .env
+```
+
+If that command returns no output, no `.env` file has ever been committed. All real credentials (`KOREA_NTB_API_KEY`, `IP_AUSTRALIA_CLIENT_ID`, `IP_AUSTRALIA_CLIENT_SECRET`) live only in your local `.env` file and in Render's environment variable dashboard — never in code, never in `render.yaml`, never in a commit.
+
+**What's safe to commit vs. what isn't:**
+
+| Type | Safe to commit? |
+|---|---|
+| Domain names / CORS allow-list | ✅ Yes — public info, same as visiting the site |
+| Middleware / route code | ✅ Yes |
+| API keys, client secrets, passwords | ❌ Never — `.env` + Render dashboard only |
+
+### CORS allow-list
+
+`backend/main.py` restricts which frontend origins may call the API (replacing the previous wide-open `allow_origins=["*"]`). CORS only affects **browser-based** requests — it does not block `curl`/scripts (that's the rate limiter's job, below).
+
+To add a new frontend domain (e.g. a staging site, or a domain change):
+
+1. Open `backend/main.py`
+2. Add the new URL as a new entry in the `allow_origins` list passed to `CORSMiddleware` (must include the `https://`/`http://` scheme, no trailing slash)
+3. Commit, push, and manually redeploy `apsei-api` on Render (no auto-deploy on the free tier)
+
+If you see `Access-Control-Allow-Origin` errors in a browser console for a legitimate new frontend, this list is almost always the fix.
+
+### Rate limiting
+
+`backend/middleware/rate_limit.py` caps each IP address to a fixed number of requests per rolling 60-second window (currently 240 — measured from real app usage, with generous headroom; see `app.add_middleware(RateLimitMiddleware, ...)` in `main.py`). This applies to **every** client type — browser, curl, scripts — since it runs server-side before the route handler executes. It's in-memory (no Redis), which is correct as long as this runs on a single instance; if you ever move to multiple instances behind a load balancer, this would need to move to a shared store (e.g. Redis) since separate instances don't share memory.
+
+### Security headers
+
+`backend/middleware/security_headers.py` adds baseline protective headers (`X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`) to every response. No action needed unless you're deliberately embedding this API's responses in an iframe elsewhere, in which case `X-Frame-Options` would need revisiting.
