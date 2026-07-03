@@ -404,6 +404,27 @@ async function fetchFacets() {
   return res.json();
 }
 
+// Render's free tier spins the backend down when idle — the first request
+// after a while can take up to ~30-40s to wake it up, and a bare fetch
+// failure would otherwise dead-end the page until the user manually retries
+// (e.g. by clicking "Clear filters"). Retry silently in the background
+// instead so the page self-heals on first load.
+async function withWakeupRetry(fn, { attempts = 6, delayMs = 6000, onRetry } = {}) {
+  let lastErr;
+  for (let i = 0; i < attempts; i++) {
+    try {
+      return await fn();
+    } catch (e) {
+      lastErr = e;
+      if (i < attempts - 1) {
+        onRetry?.(i + 1, attempts);
+        await new Promise((r) => setTimeout(r, delayMs));
+      }
+    }
+  }
+  throw lastErr;
+}
+
 async function fetchResults(overrides = {}) {
   const params = new URLSearchParams();
   const page = overrides.page || 1;
@@ -513,12 +534,16 @@ async function renderResults() {
 
   let merged;
   try {
-    merged = await buildMergedPage(state.mergedPage, activeIds);
+    merged = await withWakeupRetry(() => buildMergedPage(state.mergedPage, activeIds), {
+      onRetry: () => {
+        els.results.innerHTML = `<div class="empty-state"><p>Waking up the search service — this can take up to 30 seconds on first load…</p></div>`;
+      },
+    });
   } catch {
     els.results.innerHTML = `
       <div class="empty-state">
         <h3>Could not connect to the search service</h3>
-        <p>The search service is temporarily unavailable. It may be starting up — please wait 30 seconds and refresh.</p>
+        <p>The search service is temporarily unavailable. Please wait a moment and refresh.</p>
       </div>`;
     return;
   }
@@ -575,6 +600,7 @@ const SOURCE_DETAIL = {
   korea_ntb: {
     flag: "🇰🇷",
     size: "128,000+",
+    sizeValue: 128000,
     sizeLabel: "technologies",
     description: "Korea's national repository for technology transfer offers from universities, research institutes, and public R&D institutions. Technologies span manufacturing, ICT, biotech, energy, and more.",
     coverage: "Republic of Korea — domestic technologies available for licensing, joint development, or transfer to domestic and international partners.",
@@ -591,6 +617,7 @@ const SOURCE_DETAIL = {
   ip_australia: {
     flag: "🇦🇺",
     size: "6,000+",
+    sizeValue: 6000,
     sizeLabel: "patents",
     description: "Australian patent applications and grants searched via the IP Australia Patent Search API. Covers innovation patents, standard patents, and PCT national phase entries.",
     coverage: "Australia — all patent applications lodged with IP Australia, including PCT applications entering the national phase.",
@@ -599,6 +626,7 @@ const SOURCE_DETAIL = {
   csir_india: {
     flag: "🇮🇳",
     size: "1,739",
+    sizeValue: 1739,
     sizeLabel: "technologies",
     description: "India's Council of Scientific and Industrial Research (CSIR) technology transfer portal — spanning 30+ national laboratories across agriculture, food, health, energy, materials, ICT, and manufacturing.",
     coverage: "India — technologies from CSIR institutes available for licensing, joint development, and commercialisation by domestic and international partners.",
@@ -607,6 +635,7 @@ const SOURCE_DETAIL = {
   dost_tapi: {
     flag: "🇵🇭",
     size: "75",
+    sizeValue: 75,
     sizeLabel: "technologies",
     description: "The DOST-TAPI Technology Transfer Portal lists technologies developed by Philippine government R&D institutes ready for commercialisation across 5 priority sectors.",
     coverage: "Philippines — technologies from DOST agencies covering agricultural productivity, healthcare, MSME competitiveness, ICT, and disaster resilience.",
@@ -615,6 +644,7 @@ const SOURCE_DETAIL = {
   tech2biz: {
     flag: "🇹🇭",
     size: "645",
+    sizeValue: 645,
     sizeLabel: "technologies",
     description: "Tech2Biz is Thailand's national technology matching platform, connecting researchers from NSTDA institutes and universities with investors and entrepreneurs seeking innovations for commercialisation.",
     coverage: "Thailand — technologies from NSTDA, universities, and public R&D institutes across agriculture, health, ICT, materials, food, energy, and manufacturing.",
@@ -623,6 +653,7 @@ const SOURCE_DETAIL = {
   jst_japan: {
     flag: "🇯🇵",
     size: "303",
+    sizeValue: 303,
     sizeLabel: "patents",
     description: "Japan Science and Technology Agency (JST) patent portfolio — patents from Japanese universities and public research institutes explicitly available for international licensing across 14 technology categories.",
     coverage: "Japan — patents from JST-funded research institutions covering biotech, materials, semiconductors, energy, medical devices, software, robotics, and more. Each patent links directly to Google Patents for full specifications.",
@@ -687,10 +718,14 @@ async function renderSourcesTable() {
   const grid = document.querySelector("#source-cards-grid");
   const badge = document.querySelector("#source-count-badge strong");
   try {
-    const [sources, facets] = await Promise.all([
-      fetchSources(),
-      fetchFacets().catch(() => ({ transfer_types: [] })),
-    ]);
+    const [sources, facets] = await withWakeupRetry(
+      () => Promise.all([fetchSources(), fetchFacets().catch(() => ({ transfer_types: [] }))]),
+      {
+        onRetry: () => {
+          if (grid) grid.innerHTML = `<p>Waking up the search service — this can take up to 30 seconds on first load…</p>`;
+        },
+      }
+    );
     sourcesCache = sources;
 
     // Populate filters — Transfer Type options are scraped from what each
@@ -726,8 +761,20 @@ async function renderSourcesTable() {
       renderResults();
     });
 
+    // Rank by technology/patent count, largest first — search-redirect
+    // sources (e.g. WIPO) have no comparable count and are excluded from
+    // the ranking, kept at the end in their original order.
+    const rankedSources = [...sources].sort((a, b) => {
+      const av = SOURCE_DETAIL[a.id]?.sizeValue;
+      const bv = SOURCE_DETAIL[b.id]?.sizeValue;
+      if (av == null && bv == null) return 0;
+      if (av == null) return 1;
+      if (bv == null) return -1;
+      return bv - av;
+    });
+
     if (badge) badge.textContent = sources.length;
-    if (grid) grid.innerHTML = sources.map(sourceDetailCard).join("");
+    if (grid) grid.innerHTML = rankedSources.map(sourceDetailCard).join("");
   } catch {
     if (grid) grid.innerHTML = `<p>Could not load sources.</p>`;
   }
