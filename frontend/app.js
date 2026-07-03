@@ -383,7 +383,10 @@ async function buildMergedPage(globalPage, activeIds) {
 
 function renderMergedGrid(items) {
   if (!items.length) {
-    return `<div class="empty-state"><h3>No matching technologies found</h3><p>Try a broader keyword or clear one of the filters.</p></div>`;
+    const heading = state.query
+      ? `No technologies available for "${state.query}"`
+      : "No matching technologies found";
+    return `<div class="empty-state"><h3>${heading}</h3><p>Try a broader keyword or clear one of the filters.</p></div>`;
   }
   return `<div class="technology-list merged-grid">
     ${items.map(({ tech, source }) => technologyCard(tech, source)).join("")}
@@ -549,25 +552,40 @@ async function renderResults() {
     return;
   }
 
-  const redirectHtml = redirectSources.map(redirectSourceBlock).join("");
-  const gridHtml = renderMergedGrid(merged.items);
-  const paginationHtml = merged.items.length ? renderPaginationBar(state.mergedPage, merged.totalPages) : "";
-  const headerHtml = merged.items.length
-    ? mergedGridHeader(activeIds, state.mergedPage, merged.totalPages, merged.totalAcrossSources)
-    : "";
+  // Blank state — no search term and no filters applied. Show only the
+  // participating source information (name, coverage, counts) rather than
+  // flooding the page with an unrequested pile of technology cards.
+  const isBlankState = !state.query && !state.countries.length && !state.sectors.length
+    && !state.databaseTypes.length && !state.sources.length && !state.transferTypes.length;
 
-  els.results.innerHTML = `
-    <div class="merged-grid-wrap">
-      ${headerHtml}
-      ${gridHtml}
-      ${paginationHtml}
-    </div>
-    ${redirectHtml}`;
-  autoTranslateVisibleCards();
+  if (isBlankState) {
+    els.results.innerHTML = `
+      <div class="empty-state browse-prompt">
+        <h3>Search or filter to explore technologies</h3>
+        <p>Enter a keyword above, or use the filters to narrow by country, sector, or source. You can also browse the <a href="#sources">participating technology sources</a> below.</p>
+      </div>`;
+    els.summary.textContent = "Explore technology offers from participating source platforms.";
+  } else {
+    const redirectHtml = redirectSources.map(redirectSourceBlock).join("");
+    const gridHtml = renderMergedGrid(merged.items);
+    const paginationHtml = merged.items.length ? renderPaginationBar(state.mergedPage, merged.totalPages) : "";
+    const headerHtml = merged.items.length
+      ? mergedGridHeader(activeIds, state.mergedPage, merged.totalPages, merged.totalAcrossSources)
+      : "";
 
-  els.summary.textContent = merged.items.length
-    ? "Explore technology offers from participating source platforms."
-    : "No results on this page — try adjusting your filters.";
+    els.results.innerHTML = `
+      <div class="merged-grid-wrap">
+        ${headerHtml}
+        ${gridHtml}
+        ${paginationHtml}
+      </div>
+      ${redirectHtml}`;
+    autoTranslateVisibleCards();
+
+    els.summary.textContent = merged.items.length
+      ? "Explore technology offers from participating source platforms."
+      : "No results on this page — try adjusting your filters.";
+  }
 
   const includesNTB = activeIds.includes("korea_ntb");
   updateStatsBar(merged.totalAcrossSources, filterableIds.length);
