@@ -41,6 +41,7 @@
               <span class="nav-label-full">About the Gateway</span>
               <span class="nav-label-short">About</span>
             </a>
+            <div class="nav-translate" id="google_translate_element"></div>
           </div>
         </div>
       </nav>
@@ -135,8 +136,10 @@
                 <div class="multiselect" id="transfertype-multiselect" data-label="All transfer types"></div>
               </div>
               <div class="filter-group">
-                <label>Language</label>
-                <div class="filter-translate" id="google_translate_element"></div>
+                <label for="language-filter">Language</label>
+                <select id="language-filter">
+                  <option value="">All languages</option>
+                </select>
               </div>
 
               <div class="filter-note">
