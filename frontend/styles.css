@@ -164,36 +164,32 @@
   display: none;
 }
 
-/* Google Translate widget in the nav — tame the default styling */
-.nav-translate {
+/* Google Translate widget — placed in the sidebar Language filter slot,
+   restyled to match the other filter dropdowns' width/height/border. */
+.filter-translate .goog-te-gadget-simple {
   display: flex;
+  width: 100%;
+  height: 43px;
   align-items: center;
-  padding-left: 16px;
-}
-
-.nav-translate .goog-te-gadget-simple {
-  display: inline-flex;
-  align-items: center;
-  height: 34px;
-  padding: 0 10px;
-  border: 1px solid var(--line);
+  padding: 0 12px;
+  border: 1px solid #ced9e3;
   border-radius: 3px;
   background: var(--white);
   font-family: var(--font-body);
-  font-size: 12px;
+  font-size: 13px;
 }
 
-.nav-translate .goog-te-gadget-simple:hover {
+.filter-translate .goog-te-gadget-simple:hover {
   border-color: var(--blue-600);
 }
 
-.nav-translate .goog-te-gadget-simple a,
-.nav-translate .goog-te-gadget-simple span {
-  color: #4c5e70;
+.filter-translate .goog-te-gadget-simple a,
+.filter-translate .goog-te-gadget-simple span {
+  color: #4c6074;
   text-decoration: none;
 }
 
-.nav-translate .goog-te-gadget-icon {
+.filter-translate .goog-te-gadget-icon {
   display: none;
 }
 
@@ -949,32 +945,6 @@ body {
   gap: 8px;
   margin-top: auto;
   padding-top: 4px;
-}
-
-.card-translate-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  padding: 5px 11px;
-  border: 1px solid var(--blue-700);
-  border-radius: 3px;
-  color: var(--blue-700);
-  background: var(--white);
-  font-size: 11px;
-  font-weight: 700;
-  cursor: pointer;
-  transition: 0.2s ease;
-  white-space: nowrap;
-}
-
-.card-translate-btn:hover {
-  color: var(--white);
-  background: var(--blue-700);
-}
-
-.card-translate-btn:disabled {
-  opacity: 0.6;
-  cursor: default;
 }
 
 .card-detail-panel {

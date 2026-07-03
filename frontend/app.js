@@ -32,7 +32,6 @@ const state = {
   databaseTypes: [],
   sources: [],
   transferTypes: [],
-  language: "",
   mergedPage: 1,
 };
 
@@ -47,7 +46,6 @@ const els = {
   dbtypeMs: document.querySelector("#dbtype-multiselect"),
   sourceMs: document.querySelector("#source-multiselect"),
   transferTypeMs: document.querySelector("#transfertype-multiselect"),
-  language: document.querySelector("#language-filter"),
   clear: document.querySelector("#clear-filters"),
   filters: document.querySelector(".filters"),
   statsBar: document.querySelector("#global-stats-bar"),
@@ -149,7 +147,7 @@ function technologyCard(technology, source) {
   const flag = (SOURCE_DETAIL[source.id] || {}).flag || "";
 
   return `
-    <article class="technology-card" data-tech-id="${technology.id}">
+    <article class="technology-card" data-tech-id="${technology.id}" ${needsTranslation ? 'data-needs-translation="true"' : ""}>
       <div class="card-top-row">
         <span class="card-sector">${technology.sector}</span>
         <span class="card-source-pill" title="${source.name}">${flag} ${source.name}</span>
@@ -169,29 +167,30 @@ function technologyCard(technology, source) {
         ${detailRows}
       </div>
       <div class="card-actions">
-        ${needsTranslation ? `<button class="card-translate-btn" onclick="translateCard(this)">Translate to English</button>` : ""}
         ${technology.url ? `<a class="button button-secondary card-external-link" href="${technology.url}" target="_blank" rel="noopener noreferrer">${technology.source_id === "ip_australia" ? "Search patent ↗" : "View on source ↗"}</a>` : ""}
       </div>
     </article>
   `;
 }
 
+// Google's public translate endpoint (same service backing the page-wide
+// Google Translate widget) — no API key needed. Long text gets split into
+// multiple chunks in the response, which we rejoin.
 async function translateText(text) {
   if (!text || text.trim().length < 2) return text;
-  const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text.slice(0, 500))}&langpair=ko|en`;
+  const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=ko&tl=en&dt=t&q=${encodeURIComponent(text.slice(0, 500))}`;
   const r = await fetch(url);
   const data = await r.json();
-  return data.responseData?.translatedText || text;
+  return (data[0] || []).map((chunk) => chunk[0]).join("") || text;
 }
 
-async function translateCard(btn) {
-  const card = btn.closest("[data-tech-id]");
+// Korean NTB cards are auto-translated to English on render — no manual
+// "Translate to English" button. Silent unless it fails.
+async function autoTranslateCard(card) {
   const titleEl = card.querySelector(".card-title");
   const summaryEl = card.querySelector(".card-summary");
+  const sectorEl = card.querySelector(".card-sector");
   const tags = card.querySelectorAll(".keyword-tag");
-
-  btn.textContent = "Translating…";
-  btn.disabled = true;
 
   try {
     const [translatedTitle, translatedSummary] = await Promise.all([
@@ -200,25 +199,21 @@ async function translateCard(btn) {
     ]);
     titleEl.textContent = translatedTitle;
     summaryEl.textContent = translatedSummary;
-    for (const tag of tags) {
-      translateText(tag.textContent).then((t) => { tag.textContent = t; });
-    }
-    const sectorEl = card.querySelector(".card-sector");
-    if (sectorEl) {
-      translateText(sectorEl.textContent).then((t) => { sectorEl.textContent = t; });
-    }
+    if (sectorEl) translateText(sectorEl.textContent).then((t) => { sectorEl.textContent = t; });
+    tags.forEach((tag) => translateText(tag.textContent).then((t) => { tag.textContent = t; }));
     card.querySelectorAll(".detail-translatable").forEach((el) => {
       translateText(el.textContent).then((t) => { el.textContent = t; });
     });
-    btn.textContent = "✓ Translated";
     card.classList.add("translated");
   } catch {
-    btn.textContent = "Translation failed — retry";
-    btn.disabled = false;
+    card.classList.add("translation-failed");
   }
 }
 
-window.translateCard = translateCard;
+function autoTranslateVisibleCards() {
+  document.querySelectorAll('[data-needs-translation="true"]:not(.translated):not(.translation-failed)')
+    .forEach((card) => autoTranslateCard(card));
+}
 
 const REDIRECT_SOURCE_INFO = {
   wipo_patentscope: {
@@ -420,7 +415,6 @@ async function fetchResults(overrides = {}) {
   if (state.transferTypes.length) params.set("transfer_type", state.transferTypes.join(","));
   if (src)            params.set("source", src);
   if (excl)           params.set("exclude", excl);
-  if (state.language) params.set("language", state.language);
   if (page > 1)       params.set("page", page);
   const res = await fetch(`${API_BASE}/search?${params}`);
   if (!res.ok) throw new Error(`Search failed: ${res.status}`);
@@ -543,6 +537,7 @@ async function renderResults() {
       ${paginationHtml}
     </div>
     ${redirectHtml}`;
+  autoTranslateVisibleCards();
 
   els.summary.textContent = merged.items.length
     ? "Explore technology offers from participating source platforms."
@@ -766,12 +761,6 @@ document.querySelector("#popular-chips").addEventListener("click", (event) => {
   if (chip) runSearch(chip.dataset.keyword);
 });
 
-els.language.addEventListener("change", () => {
-  state.language = els.language.value;
-  state.mergedPage = 1;
-  renderResults();
-});
-
 els.clear.addEventListener("click", () => {
   state.query = "";
   state.countries = [];
@@ -779,10 +768,8 @@ els.clear.addEventListener("click", () => {
   state.databaseTypes = [];
   state.sources = [];
   state.transferTypes = [];
-  state.language = "";
   state.mergedPage = 1;
   els.input.value = "";
-  els.language.value = "";
   [els.countryMs, els.sectorMs, els.dbtypeMs, els.sourceMs, els.transferTypeMs].forEach((c) => c._render?.());
   renderResults();
 });
