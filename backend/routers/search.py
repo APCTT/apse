@@ -4,7 +4,7 @@ import json
 import logging
 from typing import Optional
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Query
 from backend.sources.registry import SOURCES, SOURCE_MAP
 from backend.models.response import SearchResponse
 from backend.cache.ttl_cache import cache
@@ -21,14 +21,14 @@ def _cache_key(params: dict) -> str:
 
 @router.get("/search", response_model=SearchResponse)
 async def search(
-    q: Optional[str] = None,
-    country: Optional[str] = None,
-    sector: Optional[str] = None,
-    source: Optional[str] = None,
-    exclude: Optional[str] = None,
-    language: Optional[str] = None,
-    transfer_type: Optional[str] = None,
-    page: int = 1,
+    q: Optional[str] = Query(None, max_length=200),
+    country: Optional[str] = Query(None, max_length=300),
+    sector: Optional[str] = Query(None, max_length=300),
+    source: Optional[str] = Query(None, max_length=300),
+    exclude: Optional[str] = Query(None, max_length=300),
+    language: Optional[str] = Query(None, max_length=50),
+    transfer_type: Optional[str] = Query(None, max_length=300),
+    page: int = Query(1, ge=1, le=100_000),
 ):
     query = q or ""
     filters = {k: v for k, v in {"country": country, "sector": sector, "page": page}.items() if v}
