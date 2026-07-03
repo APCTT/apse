@@ -502,7 +502,13 @@ body {
 
 .gsb-label {
   color: var(--muted);
-  font-size: 13px;
+  font-size: 26px;
+  line-height: 1.3;
+}
+
+.gsb-highlight {
+  color: var(--blue-950);
+  font-weight: 800;
 }
 
 .search-layout {

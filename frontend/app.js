@@ -447,8 +447,9 @@ async function fetchResults(overrides = {}) {
 function updateStatsBar(totalTechs, totalSources) {
   if (!els.statsBar) return;
   els.statsBar.querySelector(".gsb-number").textContent = totalTechs.toLocaleString();
-  els.statsBar.querySelector(".gsb-label").textContent =
-    `technolog${totalTechs === 1 ? "y" : "ies"} across ${totalSources} source platform${totalSources === 1 ? "" : "s"}. `
+  els.statsBar.querySelector(".gsb-label").innerHTML =
+    `technolog${totalTechs === 1 ? "y" : "ies"} across <strong class="gsb-highlight">${totalSources}</strong> `
+    + `source platform${totalSources === 1 ? "" : "s"}. `
     + `Filter by source to view totals for each individual source.`;
 }
 
