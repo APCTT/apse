@@ -32,7 +32,6 @@ const state = {
   databaseTypes: [],
   sources: [],
   transferTypes: [],
-  language: "",
   mergedPage: 1,
 };
 
@@ -47,7 +46,6 @@ const els = {
   dbtypeMs: document.querySelector("#dbtype-multiselect"),
   sourceMs: document.querySelector("#source-multiselect"),
   transferTypeMs: document.querySelector("#transfertype-multiselect"),
-  language: document.querySelector("#language-filter"),
   clear: document.querySelector("#clear-filters"),
   filters: document.querySelector(".filters"),
   statsBar: document.querySelector("#global-stats-bar"),
@@ -417,7 +415,6 @@ async function fetchResults(overrides = {}) {
   if (state.transferTypes.length) params.set("transfer_type", state.transferTypes.join(","));
   if (src)            params.set("source", src);
   if (excl)           params.set("exclude", excl);
-  if (state.language) params.set("language", state.language);
   if (page > 1)       params.set("page", page);
   const res = await fetch(`${API_BASE}/search?${params}`);
   if (!res.ok) throw new Error(`Search failed: ${res.status}`);
@@ -764,12 +761,6 @@ document.querySelector("#popular-chips").addEventListener("click", (event) => {
   if (chip) runSearch(chip.dataset.keyword);
 });
 
-els.language.addEventListener("change", () => {
-  state.language = els.language.value;
-  state.mergedPage = 1;
-  renderResults();
-});
-
 els.clear.addEventListener("click", () => {
   state.query = "";
   state.countries = [];
@@ -777,10 +768,8 @@ els.clear.addEventListener("click", () => {
   state.databaseTypes = [];
   state.sources = [];
   state.transferTypes = [];
-  state.language = "";
   state.mergedPage = 1;
   els.input.value = "";
-  els.language.value = "";
   [els.countryMs, els.sectorMs, els.dbtypeMs, els.sourceMs, els.transferTypeMs].forEach((c) => c._render?.());
   renderResults();
 });
