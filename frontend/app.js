@@ -827,6 +827,7 @@ function runSearch(query) {
   state.query = query.trim();
   state.mergedPage = 1;  // reset pagination on new search
   els.input.value = state.query;
+  switchAppView("view-search");
   renderResults();
   document.querySelector("#search-results").scrollIntoView({ behavior: "smooth" });
 }
@@ -868,6 +869,39 @@ document.querySelector(".mobile-filter-button").addEventListener("click", () => 
 
 document.querySelector(".filter-close").addEventListener("click", () => {
   els.filters.classList.remove("open");
+});
+
+// ── App view switching (Search vs Sources) ───────────────────────────────────
+// The site behaves like two separate pages sharing one nav: only one
+// .app-view is visible at a time. The About section lives outside both
+// views and stays visible regardless — a persistent footer.
+
+function switchAppView(viewId) {
+  document.querySelectorAll(".app-view").forEach((v) => { v.hidden = v.id !== viewId; });
+  const activeHref = viewId === "view-sources" ? "#sources" : "#search-results";
+  document.querySelectorAll(".gateway-nav-links > a").forEach((a) => {
+    a.classList.toggle("active", a.getAttribute("href") === activeHref);
+  });
+}
+
+document.querySelector(".gateway-nav-brand").addEventListener("click", (e) => {
+  e.preventDefault();
+  switchAppView("view-search");
+  document.querySelector("#gateway-home").scrollIntoView();
+});
+
+document.querySelectorAll('a[href="#search-results"]').forEach((a) => {
+  a.addEventListener("click", (e) => {
+    e.preventDefault();
+    switchAppView("view-search");
+    document.querySelector("#search-results").scrollIntoView();
+  });
+});
+
+document.querySelector('a[href="#sources"]').addEventListener("click", (e) => {
+  e.preventDefault();
+  switchAppView("view-sources");
+  document.querySelector("#sources").scrollIntoView();
 });
 
 // ── Source detail page (hash routing) ────────────────────────────────────────

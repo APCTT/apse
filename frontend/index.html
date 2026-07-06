@@ -46,6 +46,7 @@
         </div>
       </nav>
 
+      <div class="app-view" id="view-search">
       <section class="hero" id="gateway-home">
         <div class="hero-pattern" aria-hidden="true"></div>
         <div class="gateway-container hero-content">
@@ -152,7 +153,9 @@
           </div>
         </div>
       </section>
+      </div>
 
+      <div class="app-view" id="view-sources" hidden>
       <section class="sources-section" id="sources">
         <div class="gateway-container">
           <div class="section-heading">
@@ -166,12 +169,15 @@
           <div id="source-cards-grid" class="source-cards-grid"></div>
         </div>
       </section>
+      </div>
 
       <!-- JPO Patent Status Lookup section removed pending further permission
            from JPO on the account's intended use. Markup preserved in git
            history (see commit that removed it) — re-add here and re-enable
            app.js's #jpo-lookup-form handler once approved. -->
 
+      <!-- About section is intentionally outside both .app-view containers —
+           persistent footer content shown regardless of which view is active. -->
       <section class="about-section" id="about">
         <div class="gateway-container about-grid">
           <div>
