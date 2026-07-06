@@ -143,6 +143,23 @@ Returns `{"status": "ok"}`. Used by Render for health checks.
 | `KOREA_NTB_API_KEY` | Yes | API key from data.go.kr for the NTB dataset |
 | `KOREA_NTB_BASE_URL` | Yes | NTB API endpoint URL |
 | `CACHE_TTL_SECONDS` | No | Cache lifetime in seconds (default: 86400) |
+| `IP_AUSTRALIA_CLIENT_ID` | No | OAuth client ID for IP Australia's Patent Search API |
+| `IP_AUSTRALIA_CLIENT_SECRET` | No | OAuth client secret for IP Australia's Patent Search API |
+| `JPO_API_USERNAME` | No | Username issued by the Japan Patent Office for Patent Information Retrieval APIs |
+| `JPO_API_PASSWORD` | No | Password issued by JPO |
+| `JPO_TOKEN_URL` | No | JPO's token endpoint (default: `https://ip-data.jpo.go.jp/auth/token`) |
+
+---
+
+## JPO Patent Status Lookup
+
+Unlike every other source in this app, JPO's Patent Information Retrieval API (`backend/integrations/jpo_client.py`, `backend/routers/jpo.py`) is **not a keyword search API** — every endpoint requires an exact 10-digit Japanese application number and returns that one application's official examination status. There is no way to turn a search term into a list of matching patents through this API (confirmed by reviewing JPO's full OpenAPI spec — every endpoint needs a known identifier: application number, case number, or an exact applicant name).
+
+Because of that, it's implemented as a **standalone lookup tool** (`#jpo-lookup` section on the frontend) rather than a card source in the merged search grid — a user enters a known application number and gets its live status directly from JPO.
+
+**Auth flow:** username/password → access token (1h) + refresh token (8h), cached in memory and refreshed automatically (`JPOClient` in `jpo_client.py`).
+
+**Caching:** JPO's account-level quota is shared across all users of this app (400-800 calls/day total) and their data only updates once daily, so lookups are cached for 12 hours per application number (`backend/routers/jpo.py`) to avoid burning through that scarce shared quota on repeated lookups of the same number.
 
 ---
 

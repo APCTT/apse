@@ -1,7 +1,7 @@
 import logging
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from backend.routers import search, sources
+from backend.routers import search, sources, jpo
 from backend.middleware.rate_limit import RateLimitMiddleware
 from backend.middleware.security_headers import SecurityHeadersMiddleware
 
@@ -34,6 +34,7 @@ app.add_middleware(SecurityHeadersMiddleware)
 
 app.include_router(search.router, prefix="/api/v1")
 app.include_router(sources.router, prefix="/api/v1")
+app.include_router(jpo.router, prefix="/api/v1")
 
 
 @app.get("/health")

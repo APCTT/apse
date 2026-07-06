@@ -1098,6 +1098,51 @@ body {
   background: #eef1f4;
 }
 
+.jpo-lookup-section {
+  padding: 76px 0;
+  border-top: 5px solid var(--un-blue);
+  background: var(--white);
+}
+
+.jpo-lookup-form {
+  display: flex;
+  gap: 12px;
+  max-width: 640px;
+  margin-top: 8px;
+}
+
+.jpo-lookup-form input {
+  flex: 1;
+  height: 48px;
+  padding: 0 16px;
+  border: 1px solid #ced9e3;
+  border-radius: 3px;
+  color: var(--ink);
+  font-size: 14px;
+  outline: 0;
+}
+
+.jpo-lookup-form input:focus {
+  border-color: var(--blue-600);
+  box-shadow: 0 0 0 3px rgba(31, 120, 207, 0.1);
+}
+
+#jpo-lookup-result {
+  margin-top: 24px;
+}
+
+.jpo-result-card {
+  max-width: 640px;
+  padding: 25px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--soft);
+}
+
+.jpo-error p {
+  color: var(--amber);
+}
+
 .source-count {
   display: flex;
   align-items: center;
