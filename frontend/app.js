@@ -932,82 +932,9 @@ window.addEventListener("popstate", (e) => {
   }
 });
 
-// ── JPO patent status lookup ─────────────────────────────────────────────────
-// Unlike our other sources, JPO's API is a lookup-by-application-number
-// service (no keyword search) — this is a standalone tool, not part of the
-// merged search grid.
-
-const JPO_FIELD_LABELS = {
-  applicationNumber: "Application number",
-  inventionTitle: "Title",
-  filingDate: "Filing date",
-  publicationNumber: "Publication number",
-  publicationDate: "Publication date",
-  registrationNumber: "Registration number",
-  registrationDate: "Registration date",
-  expireDate: "Expiry date",
-};
-
-function formatJPODate(raw) {
-  if (!raw || raw.length !== 8) return raw || "";
-  return `${raw.slice(0, 4)}-${raw.slice(4, 6)}-${raw.slice(6, 8)}`;
-}
-
-function renderJPOResult(data) {
-  const result = data.result || {};
-  const resultEl = document.querySelector("#jpo-lookup-result");
-
-  if (result.statusCode !== "100") {
-    resultEl.innerHTML = `<div class="empty-state jpo-error"><p>${result.errorMessage || "No data found for this application number."}</p></div>`;
-    return;
-  }
-
-  const info = result.data || {};
-  const applicants = (info.applicantAttorney || []).map((a) => a.name).filter(Boolean).join(", ");
-
-  const rows = Object.entries(JPO_FIELD_LABELS)
-    .map(([key, label]) => {
-      let value = info[key];
-      if (!value) return "";
-      if (key.toLowerCase().includes("date")) value = formatJPODate(value);
-      return `<div class="detail-row"><span class="detail-label">${label}</span><span class="detail-value">${value}</span></div>`;
-    })
-    .filter(Boolean)
-    .join("");
-
-  resultEl.innerHTML = `
-    <div class="jpo-result-card">
-      <h4 class="card-title">${info.inventionTitle || info.applicationNumber}</h4>
-      ${applicants ? `<p class="card-summary">Applicant(s)/Attorney(s): ${applicants}</p>` : ""}
-      <div class="card-detail-panel">${rows}</div>
-    </div>`;
-}
-
-document.querySelector("#jpo-lookup-form").addEventListener("submit", async (event) => {
-  event.preventDefault();
-  const input = document.querySelector("#jpo-app-number");
-  const appNumber = input.value.trim();
-  const resultEl = document.querySelector("#jpo-lookup-result");
-
-  if (!/^\d{10}$/.test(appNumber)) {
-    resultEl.innerHTML = `<div class="empty-state jpo-error"><p>Enter a valid 10-digit application number (e.g. 2020008423).</p></div>`;
-    return;
-  }
-
-  resultEl.innerHTML = `<div class="empty-state"><p>Checking with JPO…</p></div>`;
-
-  try {
-    const res = await fetch(`${API_BASE}/jpo/patent-status/${appNumber}`);
-    const data = await res.json();
-    if (!res.ok) {
-      resultEl.innerHTML = `<div class="empty-state jpo-error"><p>${data.detail || "Lookup failed."}</p></div>`;
-      return;
-    }
-    renderJPOResult(data);
-  } catch {
-    resultEl.innerHTML = `<div class="empty-state jpo-error"><p>Could not reach the lookup service. Please try again shortly.</p></div>`;
-  }
-});
+// JPO patent status lookup JS removed pending further permission from JPO on
+// the account's intended use (matching index.html and main.py). Available in
+// git history — re-add along with the #jpo-lookup section once approved.
 
 // ── Boot ─────────────────────────────────────────────────────────────────────
 

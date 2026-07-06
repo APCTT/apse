@@ -1,7 +1,11 @@
 import logging
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from backend.routers import search, sources, jpo
+from backend.routers import search, sources
+# JPO patent status lookup (backend/routers/jpo.py, backend/integrations/jpo_client.py)
+# is intentionally not wired up right now — pending further permission from
+# JPO on the account's intended use. Re-enable by importing jpo above and
+# adding app.include_router(jpo.router, prefix="/api/v1") below.
 from backend.middleware.rate_limit import RateLimitMiddleware
 from backend.middleware.security_headers import SecurityHeadersMiddleware
 
@@ -34,7 +38,6 @@ app.add_middleware(SecurityHeadersMiddleware)
 
 app.include_router(search.router, prefix="/api/v1")
 app.include_router(sources.router, prefix="/api/v1")
-app.include_router(jpo.router, prefix="/api/v1")
 
 
 @app.get("/health")
