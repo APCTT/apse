@@ -18,6 +18,19 @@ const SECTOR_OPTIONS = [
   { value: "Construction", label: "Construction & Urban Development" },
   { value: "Chemical", label: "Chemical & Pharmaceutical" },
   { value: "Electronics", label: "Electronics & Semiconductors" },
+  // Added from NRDC India's 11 categories — not covered by the generic
+  // buckets above (or distinct enough to keep separately filterable).
+  { value: "Agro & Food Processing", label: "Agro & Food Processing" },
+  { value: "Chemical and Allied", label: "Chemical and Allied" },
+  { value: "Civil Engineering", label: "Civil Engineering" },
+  { value: "Coir", label: "Coir" },
+  { value: "Electrical & Electronics", label: "Electrical & Electronics" },
+  { value: "Engineering Sciences", label: "Engineering Sciences" },
+  { value: "Glass & Ceramics", label: "Glass & Ceramics" },
+  { value: "Herbal / Home/ Personal / Hygiene Care", label: "Herbal / Home / Personal / Hygiene Care" },
+  { value: "Life Sciences", label: "Life Sciences" },
+  { value: "Sericulture", label: "Sericulture" },
+  { value: "Food & Millet", label: "Food & Millet" },
 ];
 
 const DBTYPE_OPTIONS = [
@@ -677,6 +690,15 @@ const SOURCE_DETAIL = {
     description: "Japan Science and Technology Agency (JST) patent portfolio — patents from Japanese universities and public research institutes explicitly available for international licensing across 14 technology categories.",
     coverage: "Japan — patents from JST-funded research institutions covering biotech, materials, semiconductors, energy, medical devices, software, robotics, and more. Each patent links directly to Google Patents for full specifications.",
     searchHint: "Search by technology name, inventor, or category (e.g. 'BIOTECHNOLOGY', 'ENERGY/GREEN'). Licensing enquiries: license@jst.go.jp",
+  },
+  nrdc_india: {
+    flag: "🇮🇳",
+    size: "462",
+    sizeValue: 462,
+    sizeLabel: "technologies",
+    description: "National Research Development Corporation (NRDC) technology portfolio — established 1953 under India's Department of Scientific & Industrial Research (DSIR), with over 5,000 license agreements concluded to date across nearly every industry sector.",
+    coverage: "India — technologies from national R&D institutes across 11 sectors including agro & food processing, engineering sciences, electrical & electronics, life sciences, chemical, civil engineering, coir, glass & ceramics, herbal/personal care, sericulture, and food & millet.",
+    searchHint: "Search by technology name or application area. Each result links to the full NRDC technology profile with commercialisation contact details.",
   },
 };
 

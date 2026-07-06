@@ -5,6 +5,7 @@ from backend.sources.csir_india import CSIRIndiaSource
 from backend.sources.dost_tapi import DOSTTAPISource
 from backend.sources.tech2biz import Tech2BizSource
 from backend.sources.jst_japan import JSTJapanSource
+from backend.sources.nrdc_india import NRDCIndiaSource
 from backend.config import settings
 
 _ip_aus = IPAustraliaSource()
@@ -12,6 +13,7 @@ _csir = CSIRIndiaSource()
 _dost = DOSTTAPISource()
 _tech2biz = Tech2BizSource()
 _jst = JSTJapanSource()
+_nrdc = NRDCIndiaSource()
 
 SOURCES = [
     KoreaNTBSource(),
@@ -21,6 +23,7 @@ SOURCES = [
     _dost,
     _tech2biz,
     _jst,
+    _nrdc,
 ]
 
 SOURCE_MAP = {s.id: s for s in SOURCES}
