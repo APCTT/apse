@@ -1667,6 +1667,18 @@ body {
     width: min(100% - 28px, 620px);
   }
 
+  /* At 26px, this sentence-length label wraps across many lines on narrow
+     screens, ballooning the stats bar's height and reading as a big blank
+     gap before the next section. Scale it down; keep the number prominent. */
+  .global-stats-bar {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .gsb-label {
+    font-size: 15px;
+  }
+
   .gateway-nav {
     position: relative;
     overflow: hidden;
