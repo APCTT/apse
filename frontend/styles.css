@@ -24,13 +24,23 @@
   --shadow: 0 8px 28px rgba(16, 17, 87, 0.08);
   --font-body: "DM Sans", Arial, sans-serif;
   --font-display: "Manrope", Arial, sans-serif;
+  display: flex;
+  flex-direction: column;
   width: 100%;
+  min-height: 100vh;
   margin: 0;
   color: var(--ink);
   background: var(--white);
   font-family: var(--font-body);
   line-height: 1.55;
   -webkit-font-smoothing: antialiased;
+}
+
+/* When page content is shorter than the viewport (e.g. the blank search
+   state, or zoomed way out), stretch the closing About section to fill the
+   remaining space instead of leaving bare white background beneath it. */
+.apse > .app-view {
+  flex: 0 0 auto;
 }
 
 .apse,
@@ -1561,6 +1571,9 @@ body {
 }
 
 .about-section {
+  display: flex;
+  flex: 1 0 auto;
+  align-items: center;
   padding: 76px 0;
   color: var(--white);
   background:
