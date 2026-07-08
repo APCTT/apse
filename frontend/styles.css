@@ -437,7 +437,10 @@ body {
   background: var(--white);
 }
 
-.search-section,
+.search-section {
+  padding: 32px 0 92px;
+}
+
 .sources-section {
   padding: 82px 0 92px;
 }
@@ -523,7 +526,7 @@ body {
 }
 
 .gsb-stat-number {
-  color: var(--un-blue);
+  color: var(--blue-800);
   font-family: var(--font-display);
   font-size: 38px;
   font-weight: 800;
@@ -569,17 +572,17 @@ body {
 }
 
 .gsb-chip span {
-  color: var(--un-blue);
+  color: var(--blue-700);
   font-weight: 800;
 }
 
 .gsb-chip:hover {
-  border-color: var(--un-blue);
+  border-color: var(--blue-700);
 }
 
 .gsb-chip.active {
-  border-color: var(--un-blue);
-  background: var(--un-blue);
+  border-color: var(--blue-700);
+  background: var(--blue-700);
   color: var(--white);
 }
 
