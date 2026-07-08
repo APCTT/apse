@@ -460,13 +460,36 @@ async function fetchResults(overrides = {}) {
 
 // ── Rendering ─────────────────────────────────────────────────────────────────
 
-function updateStatsBar(totalTechs, totalSources) {
+function updateStatsBar(totalTechs, totalSources, totalCountries) {
   if (!els.statsBar) return;
-  els.statsBar.querySelector(".gsb-number").textContent = totalTechs.toLocaleString();
-  els.statsBar.querySelector(".gsb-label").innerHTML =
-    `technolog${totalTechs === 1 ? "y" : "ies"} across <strong class="gsb-highlight">${totalSources}</strong> `
-    + `source platform${totalSources === 1 ? "" : "s"}. `
-    + `Filter by source to view totals for each individual source.`;
+  els.statsBar.querySelector("#gsb-stat-techs").textContent = totalTechs.toLocaleString();
+  els.statsBar.querySelector("#gsb-stat-sources").textContent = totalSources.toLocaleString();
+  els.statsBar.querySelector("#gsb-stat-countries").textContent = totalCountries.toLocaleString();
+}
+
+// Clickable source chips shown under the stats row — a visual alternative to
+// the "Source platform" dropdown filter. Multi-select, kept in sync with
+// state.sources (whichever control — chip or dropdown — changed it last).
+function renderSourceChips() {
+  const container = document.querySelector("#gsb-source-chips");
+  if (!container || !sourcesCache.length) return;
+  container.innerHTML = sourcesCache.map((s) => {
+    const flag = (SOURCE_DETAIL[s.id] || {}).flag || "";
+    const active = state.sources.includes(s.id);
+    return `<button type="button" class="gsb-chip${active ? " active" : ""}" data-source="${s.id}" aria-pressed="${active}">
+      <span aria-hidden="true">${flag}</span> ${s.name}
+    </button>`;
+  }).join("");
+  container.querySelectorAll(".gsb-chip").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const id = btn.dataset.source;
+      const idx = state.sources.indexOf(id);
+      if (idx === -1) state.sources.push(id); else state.sources.splice(idx, 1);
+      state.mergedPage = 1;
+      els.sourceMs._render?.();
+      renderResults();
+    });
+  });
 }
 
 // Sources that back the merged, paginated grid (metadata-search sources).
@@ -542,7 +565,8 @@ async function renderResults() {
   els.title.textContent = state.query ? `Results for "${state.query}"` : "Technology search results";
   els.summary.textContent = "Searching across source platforms…";
   els.results.innerHTML = `<div class="empty-state"><p>Loading results…</p></div>`;
-  updateStatsBar(0, 0);
+  updateStatsBar(0, 0, 0);
+  renderSourceChips();
 
   const filterableIds = getFilterableSourceIds();
   const activeIds = getActiveMergeIds();
@@ -601,7 +625,9 @@ async function renderResults() {
   }
 
   const includesNTB = activeIds.includes("korea_ntb");
-  updateStatsBar(merged.totalAcrossSources, filterableIds.length);
+  const sourceMap = Object.fromEntries(sourcesCache.map((s) => [s.id, s]));
+  const totalCountries = new Set(filterableIds.map((id) => sourceMap[id]?.country).filter(Boolean)).size;
+  updateStatsBar(merged.totalAcrossSources, filterableIds.length, totalCountries);
 
   // Fetch Korea NTB's live total in the background purely for the tech-count
   // total, when it matches the active filters but was trimmed from the
@@ -613,7 +639,7 @@ async function renderResults() {
       .then((data) => {
         const ntbTotal = data.source_totals?.korea_ntb || 0;
         if (lastActiveIds !== activeIds) return; // a newer search superseded this one
-        updateStatsBar(merged.totalAcrossSources + ntbTotal, filterableIds.length);
+        updateStatsBar(merged.totalAcrossSources + ntbTotal, filterableIds.length, totalCountries);
       })
       .catch(() => {});
   }

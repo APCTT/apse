@@ -492,33 +492,82 @@ body {
 
 .global-stats-bar {
   display: flex;
-  align-items: baseline;
-  gap: 10px;
+  flex-direction: column;
+  gap: 18px;
   margin-bottom: 22px;
-  padding: 16px 22px;
+  padding: 20px 22px;
   border: 1px solid var(--blue-100);
   border-left: 3px solid var(--un-blue);
   border-radius: 4px;
   background: var(--blue-50);
 }
 
-.gsb-number {
-  color: var(--blue-950);
+.gsb-stats-row {
+  display: flex;
+  gap: 40px;
+}
+
+.gsb-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.gsb-stat-number {
+  color: var(--un-blue);
   font-family: var(--font-display);
-  font-size: 26px;
+  font-size: 30px;
   font-weight: 800;
   line-height: 1;
 }
 
-.gsb-label {
+.gsb-stat-label {
   color: var(--muted);
-  font-size: 26px;
-  line-height: 1.3;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
 }
 
-.gsb-highlight {
-  color: var(--blue-950);
-  font-weight: 800;
+.gsb-hint {
+  margin: 0;
+  padding-top: 14px;
+  border-top: 1px solid var(--blue-100);
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.gsb-source-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.gsb-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border: 1px solid var(--blue-100);
+  border-radius: 999px;
+  background: var(--white);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.gsb-chip:hover {
+  border-color: var(--un-blue);
+}
+
+.gsb-chip.active {
+  border-color: var(--un-blue);
+  background: var(--un-blue);
+  color: var(--white);
 }
 
 .search-layout {
@@ -1680,16 +1729,12 @@ body {
     width: min(100% - 28px, 620px);
   }
 
-  /* At 26px, this sentence-length label wraps across many lines on narrow
-     screens, ballooning the stats bar's height and reading as a big blank
-     gap before the next section. Scale it down; keep the number prominent. */
-  .global-stats-bar {
-    flex-direction: column;
-    align-items: flex-start;
+  .gsb-stats-row {
+    gap: 24px;
   }
 
-  .gsb-label {
-    font-size: 15px;
+  .gsb-stat-number {
+    font-size: 22px;
   }
 
   .gateway-nav {

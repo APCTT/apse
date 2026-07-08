@@ -102,8 +102,22 @@
           </div>
 
           <div class="global-stats-bar" id="global-stats-bar" aria-live="polite">
-            <span class="gsb-number">—</span>
-            <span class="gsb-label">technologies across — source platforms</span>
+            <div class="gsb-stats-row">
+              <div class="gsb-stat">
+                <span class="gsb-stat-number" id="gsb-stat-techs">—</span>
+                <span class="gsb-stat-label">Technology offers</span>
+              </div>
+              <div class="gsb-stat">
+                <span class="gsb-stat-number" id="gsb-stat-sources">—</span>
+                <span class="gsb-stat-label">Source databases</span>
+              </div>
+              <div class="gsb-stat">
+                <span class="gsb-stat-number" id="gsb-stat-countries">—</span>
+                <span class="gsb-stat-label">Member states</span>
+              </div>
+            </div>
+            <p class="gsb-hint">Tap a source below to filter results. Select multiple, or use Clear all filters to reset.</p>
+            <div class="gsb-source-chips" id="gsb-source-chips" role="group" aria-label="Filter by source"></div>
           </div>
 
           <div class="search-layout">
