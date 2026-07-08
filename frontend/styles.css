@@ -493,31 +493,39 @@ body {
 .global-stats-bar {
   display: flex;
   flex-direction: column;
-  gap: 18px;
-  margin-bottom: 22px;
-  padding: 20px 22px;
+  gap: 22px;
+  margin-bottom: 28px;
+  padding: 36px 40px;
   border: 1px solid var(--blue-100);
-  border-left: 3px solid var(--un-blue);
-  border-radius: 4px;
-  background: var(--blue-50);
+  border-radius: 16px;
+  background: var(--white);
+  box-shadow: 0 18px 40px -22px rgba(16, 17, 87, 0.28);
 }
 
 .gsb-stats-row {
   display: flex;
-  gap: 40px;
+  justify-content: space-around;
+  text-align: center;
 }
 
 .gsb-stat {
   display: flex;
+  flex: 1 1 0;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
+  padding: 0 16px;
+  border-left: 1px solid var(--blue-100);
+}
+
+.gsb-stat:first-child {
+  border-left: none;
 }
 
 .gsb-stat-number {
   color: var(--un-blue);
   font-family: var(--font-display);
-  font-size: 30px;
+  font-size: 38px;
   font-weight: 800;
   line-height: 1;
 }
@@ -532,7 +540,7 @@ body {
 
 .gsb-hint {
   margin: 0;
-  padding-top: 14px;
+  padding-top: 18px;
   border-top: 1px solid var(--blue-100);
   color: var(--muted);
   font-size: 13px;
@@ -541,23 +549,28 @@ body {
 .gsb-source-chips {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
+  gap: 12px;
 }
 
 .gsb-chip {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 8px 14px;
+  padding: 9px 16px;
   border: 1px solid var(--blue-100);
   border-radius: 999px;
-  background: var(--white);
+  background: var(--blue-50);
   color: var(--ink);
   font-family: var(--font-body);
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
   transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.gsb-chip span {
+  color: var(--un-blue);
+  font-weight: 800;
 }
 
 .gsb-chip:hover {
@@ -567,6 +580,10 @@ body {
 .gsb-chip.active {
   border-color: var(--un-blue);
   background: var(--un-blue);
+  color: var(--white);
+}
+
+.gsb-chip.active span {
   color: var(--white);
 }
 
