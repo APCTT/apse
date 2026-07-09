@@ -396,6 +396,11 @@ async function buildMergedPage(globalPage, activeIds) {
 
 function renderMergedGrid(items) {
   if (!items.length) {
+    // IP Australia's search API needs an actual keyword — selecting it alone
+    // with no query silently returns nothing otherwise, which reads as broken.
+    if (!state.query && state.sources.length === 1 && state.sources[0] === "ip_australia") {
+      return `<div class="empty-state"><h3>Enter a keyword to search IP Australia</h3><p>IP Australia's search API requires a keyword — it can't list all patents at once. Type a term above to search it.</p></div>`;
+    }
     const heading = state.query
       ? `No technologies available for "${state.query}"`
       : "No matching technologies found";
@@ -483,8 +488,11 @@ function renderSourceChips() {
   container.querySelectorAll(".gsb-chip").forEach((btn) => {
     btn.addEventListener("click", () => {
       const id = btn.dataset.source;
-      const idx = state.sources.indexOf(id);
-      if (idx === -1) state.sources.push(id); else state.sources.splice(idx, 1);
+      // Single-select: a chip means "show me this source" — clicking a
+      // second one switches to it rather than adding to a combo, matching
+      // how a source directory is browsed. Real multi-select combos are
+      // still available via the Source platform dropdown filter.
+      state.sources = state.sources.includes(id) ? [] : [id];
       state.mergedPage = 1;
       els.sourceMs._render?.();
       renderResults();
@@ -543,6 +551,7 @@ function getRedirectSources() {
 }
 
 let lastActiveIds = [];
+let renderResultsToken = 0;
 
 function mergedGridHeader(activeIds, mergedPage, totalPages, totalAcrossSources) {
   return `
@@ -562,6 +571,11 @@ function mergedGridHeader(activeIds, mergedPage, totalPages, totalAcrossSources)
 }
 
 async function renderResults() {
+  // Rapid successive calls (e.g. clicking two source chips back-to-back) can
+  // resolve out of order; only the most recent call is allowed to write to
+  // the DOM, so a slow stale response can't clobber a newer one.
+  const token = ++renderResultsToken;
+
   els.title.textContent = state.query ? `Results for "${state.query}"` : "Technology search results";
   els.summary.textContent = "Searching across source platforms…";
   els.results.innerHTML = `<div class="empty-state"><p>Loading results…</p></div>`;
@@ -577,17 +591,23 @@ async function renderResults() {
   try {
     merged = await withWakeupRetry(() => buildMergedPage(state.mergedPage, activeIds), {
       onRetry: () => {
-        els.results.innerHTML = `<div class="empty-state"><p>Waking up the search service — this can take up to 30 seconds on first load…</p></div>`;
+        if (token === renderResultsToken) {
+          els.results.innerHTML = `<div class="empty-state"><p>Waking up the search service — this can take up to 30 seconds on first load…</p></div>`;
+        }
       },
     });
   } catch {
-    els.results.innerHTML = `
-      <div class="empty-state">
-        <h3>Could not connect to the search service</h3>
-        <p>The search service is temporarily unavailable. Please wait a moment and refresh.</p>
-      </div>`;
+    if (token === renderResultsToken) {
+      els.results.innerHTML = `
+        <div class="empty-state">
+          <h3>Could not connect to the search service</h3>
+          <p>The search service is temporarily unavailable. Please wait a moment and refresh.</p>
+        </div>`;
+    }
     return;
   }
+
+  if (token !== renderResultsToken) return; // a newer call already started; discard this stale result
 
   // Blank state — no search term and no filters applied. Show only the
   // participating source information (name, coverage, counts) rather than
