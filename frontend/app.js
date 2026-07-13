@@ -134,10 +134,20 @@ const sourceInitials = (name) =>
     .map((word) => word[0])
     .join("");
 
-// ── Render functions (unchanged) ─────────────────────────────────────────────
+// ── Render functions ──────────────────────────────────────────────────────────
+
+// Technology fields come from crawled external sources, not from us — never
+// trust them into innerHTML unescaped (a scraped title/summary containing
+// "<img onerror=...>" would otherwise execute in every visitor's browser).
+const ESCAPE_MAP = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" };
+const escapeHtml = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ESCAPE_MAP[c]);
+
+// Only allow http(s) links out to external sources — blocks a crawled
+// record's url field from carrying a "javascript:" or "data:" payload.
+const safeUrl = (url) => /^https?:\/\//i.test(url || "") ? url : "";
 
 function technologyCard(technology, source) {
-  const techId = technology.id.replace("ntb_", "");
+  const techId = escapeHtml(technology.id.replace("ntb_", ""));
   const keywords = technology.keywords.slice(0, 6);
 
   const detailRows = [
@@ -152,35 +162,36 @@ function technologyCard(technology, source) {
     .map(([label, value]) => `
       <div class="detail-row">
         <span class="detail-label">${label}</span>
-        <span class="detail-value detail-translatable">${value}</span>
+        <span class="detail-value detail-translatable">${escapeHtml(value)}</span>
       </div>`)
     .join("");
 
   const needsTranslation = technology.language === "Korean";
   const flag = (SOURCE_DETAIL[source.id] || {}).flag || "";
+  const url = safeUrl(technology.url);
 
   return `
-    <article class="technology-card" data-tech-id="${technology.id}" ${needsTranslation ? 'data-needs-translation="true"' : ""}>
+    <article class="technology-card" data-tech-id="${escapeHtml(technology.id)}" ${needsTranslation ? 'data-needs-translation="true"' : ""}>
       <div class="card-top-row">
-        <span class="card-sector">${technology.sector}</span>
-        <span class="card-source-pill" title="${source.name}">${flag} ${source.name}</span>
+        <span class="card-sector">${escapeHtml(technology.sector)}</span>
+        <span class="card-source-pill" title="${escapeHtml(source.name)}">${flag} ${escapeHtml(source.name)}</span>
       </div>
-      <h4 class="card-title">${technology.title}</h4>
-      <p class="card-summary">${technology.summary || "No summary available."}</p>
+      <h4 class="card-title">${escapeHtml(technology.title)}</h4>
+      <p class="card-summary">${escapeHtml(technology.summary) || "No summary available."}</p>
       ${keywords.length ? `
         <div class="card-keywords">
-          ${keywords.map((k) => `<span class="keyword-tag">${k}</span>`).join("")}
+          ${keywords.map((k) => `<span class="keyword-tag">${escapeHtml(k)}</span>`).join("")}
         </div>` : ""}
       <div class="card-details">
-        <span>${source.country}</span>
-        <span>${technology.language}</span>
-        <span>${source.name}</span>
+        <span>${escapeHtml(source.country)}</span>
+        <span>${escapeHtml(technology.language)}</span>
+        <span>${escapeHtml(source.name)}</span>
       </div>
       <div class="card-detail-panel">
         ${detailRows}
       </div>
       <div class="card-actions">
-        ${technology.url ? `<a class="button button-secondary card-external-link" href="${technology.url}" target="_blank" rel="noopener noreferrer">${technology.source_id === "ip_australia" ? "Search patent ↗" : "View on source ↗"}</a>` : ""}
+        ${url ? `<a class="button button-secondary card-external-link" href="${url}" target="_blank" rel="noopener noreferrer">${technology.source_id === "ip_australia" ? "Search patent ↗" : "View on source ↗"}</a>` : ""}
       </div>
     </article>
   `;
