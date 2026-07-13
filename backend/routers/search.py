@@ -34,7 +34,7 @@ async def search(
     filters = {k: v for k, v in {"country": country, "sector": sector, "page": page}.items() if v}
 
     key = _cache_key({"q": query, "country": country, "sector": sector,
-                       "source": source, "language": language,
+                       "source": source, "exclude": exclude, "language": language,
                        "transfer_type": transfer_type, "page": page})
     cached = cache.get(key)
     if cached is not None:
