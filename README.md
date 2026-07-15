@@ -116,7 +116,7 @@ Either way, once it's in `registry.py`, the search API, caching, and frontend fi
 These aren't broken, they're just gaps that would matter more if this gets more traffic or more public visibility:
 
 - A Content-Security-Policy header, so that if a crawled source ever returned something malicious, the browser has a second layer of protection beyond escaping the text (which is already done in `technologyCard()` in `app.js`).
-- Dependency scanning is set up (`.github/dependabot.yml`), but it needs to be turned on in the repo's GitHub settings (Settings → Code security → Dependabot) — the file alone doesn't activate it.
+- Dependency scanning (Dependabot or similar) — nothing is currently watching for known vulnerabilities in `fastapi`, `httpx`, etc. Worth turning on later, but be aware GitHub's default Dependabot config opens a PR for every newer version, not just security fixes, so it can get noisy if you don't scope it to security-only updates.
 - An HSTS header, mostly relevant if this ever gets its own custom domain instead of `*.onrender.com`.
 - Some way to notice if the API is getting hammered by one IP repeatedly — right now it just quietly rate-limits and moves on, with nothing logged anywhere you'd see it.
 - Rotating the API keys (Korea NTB, IP Australia) every so often, just as general hygiene for keys that don't expire on their own.
