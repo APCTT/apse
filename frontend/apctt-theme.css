@@ -1,8 +1,8 @@
 /*
- * APCTT-aligned visual preview.
+ * Default APCTT-aligned visual theme.
  *
- * Open /?theme=apctt to enable this stylesheet. The default APSE design is
- * unchanged when the query parameter is absent.
+ * The original APSE design remains available for comparison with
+ * ?theme=classic, which disables this stylesheet before the page renders.
  */
 
 .apse {

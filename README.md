@@ -91,7 +91,8 @@ Start both the backend and frontend:
 
 Then open `http://127.0.0.1:5501`. The frontend automatically uses the local
 API at `http://127.0.0.1:8000` when served from localhost, and the deployed API
-everywhere else.
+everywhere else. The APCTT-aligned theme is the default; append
+`?theme=classic` to compare it with the original APSE design.
 
 ## Deploying
 

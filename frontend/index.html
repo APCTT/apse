@@ -16,16 +16,15 @@
     />
     <link rel="stylesheet" href="styles.css?v=5" />
     <link
-      id="apctt-theme-preview"
+      id="apctt-theme"
       rel="stylesheet"
-      href="apctt-theme-preview.css?v=1"
-      disabled
+      href="apctt-theme.css?v=2"
     />
     <script>
-      if (new URLSearchParams(window.location.search).get("theme") === "apctt") {
-        document.querySelector("#apctt-theme-preview").disabled = false;
-        document.documentElement.dataset.theme = "apctt-preview";
-      }
+      const selectedTheme = new URLSearchParams(window.location.search).get("theme");
+      const useClassicTheme = selectedTheme === "classic";
+      document.querySelector("#apctt-theme").disabled = useClassicTheme;
+      document.documentElement.dataset.theme = useClassicTheme ? "classic" : "apctt";
     </script>
   </head>
   <body class="prototype-preview">
