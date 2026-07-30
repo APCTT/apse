@@ -55,17 +55,25 @@ scripts/
 
 `scripts/crawl_slintec.py` is left over from a source (Slintec, Sri Lanka) that got crawled once and then removed from the site — its data file and source class are already deleted, so this script currently has nothing to point at. Either wire Slintec back in properly or delete the script; right now it just sits there unused.
 
+Crawler refreshes are manual and are not scheduled by Render or GitHub. See
+[`docs/crawling.md`](docs/crawling.md) for the current source inventory,
+crawler-only dependencies, validation command, and safe refresh procedure.
+
 ## Running it locally
 
 You need Python 3.11 or newer.
 
 ```
-python -m venv .venv
-.venv\Scripts\activate
-pip install -r backend/requirements.txt
+python3.11 -m venv .venv
+. .venv/bin/activate
+python -m pip install -r backend/requirements.txt
 ```
 
-Make a `.env` file in the project root (don't commit it — it's already gitignored):
+On Windows, activate the environment with `.venv\Scripts\activate` instead.
+
+The app runs without API credentials using its bundled static data sources. To
+also enable the live Korea NTB source, make a `.env` file in the project root
+(don't commit it — it's already gitignored):
 
 ```
 KOREA_NTB_API_KEY=your_key
@@ -75,13 +83,15 @@ CACHE_TTL_SECONDS=86400
 
 `IP_AUSTRALIA_CLIENT_ID` / `IP_AUSTRALIA_CLIENT_SECRET` are optional — without them, IP Australia just won't show up as a source.
 
-Start the backend:
+Start both the backend and frontend:
 
 ```
-uvicorn backend.main:app --reload
+./scripts/dev.sh
 ```
 
-Then open `frontend/index.html` in a browser, or serve the `frontend/` folder with any static file server. `API_BASE` at the top of `app.js` points at whatever backend URL you're using — change it if you're not running the backend on the same machine.
+Then open `http://127.0.0.1:5501`. The frontend automatically uses the local
+API at `http://127.0.0.1:8000` when served from localhost, and the deployed API
+everywhere else.
 
 ## Deploying
 

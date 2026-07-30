@@ -46,7 +46,7 @@ class IPAustraliaSource(BaseSource):
                     auth=(cid, csec),
                 )
 
-            logger.info("IPAustralia: token response %s — %s", r.status_code, r.text[:200])
+            logger.info("IPAustralia: token response status=%s", r.status_code)
             r.raise_for_status()
             body = r.json()
             self._token = body["access_token"]
@@ -62,7 +62,7 @@ class IPAustraliaSource(BaseSource):
             token = await self._get_token()
         except Exception as e:
             logger.error("IPAustralia: token fetch failed — %s", e)
-            return [], 0
+            raise
 
         page = int(filters.get("page", 1))
         payload = {
@@ -85,7 +85,7 @@ class IPAustraliaSource(BaseSource):
             r.raise_for_status()
         except Exception as e:
             logger.error("IPAustralia: search failed — %s", e)
-            return [], 0
+            raise
 
         data = r.json()
         total = int(data.get("totalHits") or 0)

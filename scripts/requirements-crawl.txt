@@ -1,0 +1,5 @@
+# Install only when refreshing the bundled source indexes.
+# Keeping crawler-only packages out of backend/requirements.txt avoids adding
+# unnecessary dependencies to the Render web-service build.
+httpx>=0.27.0
+beautifulsoup4>=4.12.0

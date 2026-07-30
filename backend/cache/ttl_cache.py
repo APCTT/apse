@@ -6,6 +6,7 @@ import time
 from pathlib import Path
 from typing import Any
 
+from backend.config import settings
 from backend.models.technology import Technology
 
 logger = logging.getLogger(__name__)
@@ -14,22 +15,24 @@ _DB_PATH = Path(__file__).parent / "cache.db"
 
 
 def _serialize(value: Any) -> str:
-    results, source_totals = value
+    results, source_totals, failed_sources = value
     return json.dumps({
         "results": [r.model_dump(mode="json") for r in results],
         "source_totals": source_totals,
+        "failed_sources": failed_sources,
     }, default=str)
 
 
 def _deserialize(raw: str) -> Any:
     data = json.loads(raw)
     results = [Technology(**r) for r in data["results"]]
-    return results, data["source_totals"]
+    return results, data["source_totals"], data.get("failed_sources", [])
 
 
 class TTLCache:
-    def __init__(self, db_path: Path = _DB_PATH):
+    def __init__(self, db_path: Path = _DB_PATH, max_entries: int = 500):
         self._lock = threading.Lock()
+        self._max_entries = max(1, max_entries)
         self._conn = sqlite3.connect(str(db_path), check_same_thread=False)
         self._conn.execute(
             "CREATE TABLE IF NOT EXISTS cache "
@@ -75,6 +78,17 @@ class TTLCache:
                     "INSERT OR REPLACE INTO cache (key, value, expires_at) VALUES (?, ?, ?)",
                     (key, raw, expires_at),
                 )
+                self._conn.execute(
+                    "DELETE FROM cache WHERE expires_at <= ?", (time.time(),)
+                )
+                count = self._conn.execute("SELECT COUNT(*) FROM cache").fetchone()[0]
+                excess = count - self._max_entries
+                if excess > 0:
+                    self._conn.execute(
+                        "DELETE FROM cache WHERE key IN "
+                        "(SELECT key FROM cache ORDER BY expires_at ASC LIMIT ?)",
+                        (excess,),
+                    )
                 self._conn.commit()
             except Exception as e:
                 logger.warning("Cache write failed — %s", e)
@@ -91,14 +105,15 @@ class TTLCache:
 
 
 try:
-    cache = TTLCache()
+    cache = TTLCache(max_entries=settings.CACHE_MAX_ENTRIES)
 except Exception as _e:
     logger.error("SQLite cache init failed (%s) — falling back to in-memory cache", _e)
 
     class _MemoryFallback:
-        def __init__(self):
+        def __init__(self, max_entries=500):
             self._store: dict = {}
             self._lock = threading.Lock()
+            self._max_entries = max(1, max_entries)
         def get(self, key):
             with self._lock:
                 entry = self._store.get(key)
@@ -109,10 +124,12 @@ except Exception as _e:
                 return val
         def set(self, key, value, ttl=86400):
             with self._lock:
+                if key not in self._store and len(self._store) >= self._max_entries:
+                    self._store.pop(next(iter(self._store)))
                 self._store[key] = (value, time.time() + ttl)
         def invalidate(self, key):
             with self._lock: self._store.pop(key, None)
         def clear(self):
             with self._lock: self._store.clear()
 
-    cache = _MemoryFallback()
+    cache = _MemoryFallback(settings.CACHE_MAX_ENTRIES)

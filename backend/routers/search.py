@@ -5,7 +5,7 @@ import logging
 from typing import Optional
 
 from fastapi import APIRouter, Query
-from backend.sources.registry import SOURCES, SOURCE_MAP
+from backend.sources.registry import SOURCES
 from backend.models.response import SearchResponse
 from backend.cache.ttl_cache import cache
 from backend.config import settings
@@ -38,14 +38,16 @@ async def search(
                        "transfer_type": transfer_type, "page": page})
     cached = cache.get(key)
     if cached is not None:
-        results, source_totals = cached
+        results, source_totals, failed_sources = cached
         return SearchResponse(
             query=query,
-            total=len(results),
+            total=sum(source_totals.values()),
             sources_hit=len({r.source_id for r in results}),
             results=results,
             cached=True,
             source_totals=source_totals,
+            partial=bool(failed_sources),
+            failed_sources=failed_sources,
         )
 
     active_sources = SOURCES
@@ -68,33 +70,47 @@ async def search(
     async def safe_search(src):
         timeout = SOURCE_TIMEOUTS.get(src.id, 10.0)
         try:
-            return src.id, await asyncio.wait_for(src.search(query, filters), timeout=timeout)
+            items, total_count = await asyncio.wait_for(
+                src.search(query, filters), timeout=timeout
+            )
+            return src.id, items, total_count, None
         except asyncio.TimeoutError:
             logger.warning("Source %s timed out after %.0fs for query=%r", src.id, timeout, query)
-            return src.id, ([], 0)
+            return src.id, [], 0, "timeout"
         except Exception as e:
             logger.error("Source %s failed — %s: %s", src.id, type(e).__name__, e)
-            return src.id, ([], 0)
+            return src.id, [], 0, type(e).__name__
 
     raw = await asyncio.gather(*[safe_search(s) for s in active_sources])
 
     results = []
     source_totals = {}
-    for src_id, (items, total_count) in raw:
+    failed_sources = []
+    for src_id, items, total_count, error in raw:
         results.extend(items)
-        if total_count > 0:
-            source_totals[src_id] = total_count
+        source_totals[src_id] = max(0, total_count)
+        if error:
+            failed_sources.append(src_id)
 
     if language:
         results = [r for r in results if r.language.lower() == language.lower()]
 
-    cache.set(key, (results, source_totals), ttl=settings.CACHE_TTL_SECONDS)
+    # Do not preserve a transient upstream outage for the full cache TTL.
+    # Successful source-specific pages will still be cached normally.
+    if not failed_sources:
+        cache.set(
+            key,
+            (results, source_totals, failed_sources),
+            ttl=settings.CACHE_TTL_SECONDS,
+        )
 
     return SearchResponse(
         query=query,
-        total=len(results),
+        total=sum(source_totals.values()),
         sources_hit=len({r.source_id for r in results}),
         results=results,
         cached=False,
         source_totals=source_totals,
+        partial=bool(failed_sources),
+        failed_sources=failed_sources,
     )

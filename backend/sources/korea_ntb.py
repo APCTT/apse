@@ -73,18 +73,19 @@ class KoreaNTBSource(BaseSource):
             r.raise_for_status()
         except Exception as e:
             logger.error("NTB: request failed — %s: %s", type(e).__name__, e)
-            return [], 0
+            raise
 
         try:
             root = ET.fromstring(r.text)
         except ET.ParseError as e:
             logger.error("NTB: XML parse error — %s", e)
-            return [], 0
+            raise
 
         result_code = root.findtext(".//resultCode") or ""
         if result_code != "00":
-            logger.warning("NTB: resultCode=%s msg=%s", result_code, root.findtext(".//resultMsg"))
-            return [], 0
+            result_message = root.findtext(".//resultMsg") or "Unknown API error"
+            logger.warning("NTB: resultCode=%s msg=%s", result_code, result_message)
+            raise RuntimeError(f"NTB API returned resultCode={result_code}: {result_message}")
 
         total_count = int(root.findtext(".//totalCount") or "0")
         items = [self._normalize(item) for item in root.findall(".//item")]

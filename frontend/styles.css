@@ -1162,6 +1162,16 @@ body {
   color: var(--muted);
 }
 
+.results-warning {
+  margin: 0 0 16px;
+  padding: 11px 14px;
+  border: 1px solid #e4c56a;
+  border-radius: 4px;
+  color: #684f00;
+  background: #fff8dc;
+  font-size: 13px;
+}
+
 .browse-prompt {
   background: var(--blue-50);
   border-color: var(--blue-100);

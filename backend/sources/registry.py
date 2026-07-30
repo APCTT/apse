@@ -16,7 +16,7 @@ _jst = JSTJapanSource()
 _nrdc = NRDCIndiaSource()
 
 SOURCES = [
-    KoreaNTBSource(),
+    *([KoreaNTBSource()] if settings.KOREA_NTB_API_KEY else []),
     WIPOPatentscopeSource(),
     *([_ip_aus] if settings.IP_AUSTRALIA_CLIENT_ID else []),
     _csir,

@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from backend.models.technology import Technology
 
 
@@ -8,4 +8,6 @@ class SearchResponse(BaseModel):
     sources_hit: int
     results: list[Technology]
     cached: bool
-    source_totals: dict[str, int] = {}
+    source_totals: dict[str, int] = Field(default_factory=dict)
+    partial: bool = False
+    failed_sources: list[str] = Field(default_factory=list)

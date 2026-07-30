@@ -1,4 +1,7 @@
-const API_BASE = "https://apsei-api.onrender.com/api/v1";
+const LOCAL_HOSTS = new Set(["localhost", "127.0.0.1"]);
+const API_BASE = LOCAL_HOSTS.has(window.location.hostname)
+  ? "http://127.0.0.1:8000/api/v1"
+  : "https://apsei-api.onrender.com/api/v1";
 
 // Runtime state — sources populated on init, technologies fetched on each search
 let sourcesCache = [];
@@ -345,64 +348,108 @@ function renderPaginationBar(current, total) {
 
 // ── Merged round-robin grid ─────────────────────────────────────────────────
 // Every metadata-search source paginates independently on the backend at
-// page_size=20. To show one unified, mixed grid we compute — for a given
-// global page — which backend page (and local offset within it) each source
-// needs, fetch those in parallel, then interleave the slices round-robin.
+// page_size=20. The browser keeps a small per-search page cache, builds a
+// deterministic round-robin plan from the source totals, and fetches only the
+// backend pages referenced by the requested global page.
+
+const sourcePageCache = new Map();
+const SOURCE_PAGE_CACHE_LIMIT = 200;
+
+function sourcePageCacheKey(sourceId, backendPage) {
+  return JSON.stringify({
+    sourceId,
+    backendPage,
+    query: state.query,
+    countries: state.countries,
+    sectors: state.sectors,
+    transferTypes: state.transferTypes,
+  });
+}
 
 async function fetchSourcePage(sourceId, backendPage) {
-  const data = await fetchResults({ source: sourceId, page: backendPage });
-  return {
-    items: (data.results || []).filter((r) => r.source_id === sourceId),
-    total: data.source_totals?.[sourceId] || 0,
-  };
+  const key = sourcePageCacheKey(sourceId, backendPage);
+  if (sourcePageCache.has(key)) return sourcePageCache.get(key);
+
+  const request = fetchResults({ source: sourceId, page: backendPage })
+    .then((data) => {
+      const result = {
+        items: (data.results || []).filter((r) => r.source_id === sourceId),
+        total: data.source_totals?.[sourceId] || 0,
+        failed: (data.failed_sources || []).includes(sourceId),
+      };
+      // A transient upstream outage should be retried on the next render, not
+      // pinned in the browser's page cache for the rest of the session.
+      if (result.failed) sourcePageCache.delete(key);
+      return result;
+    })
+    .catch((error) => {
+      sourcePageCache.delete(key);
+      throw error;
+    });
+
+  sourcePageCache.set(key, request);
+  if (sourcePageCache.size > SOURCE_PAGE_CACHE_LIMIT) {
+    sourcePageCache.delete(sourcePageCache.keys().next().value);
+  }
+  return request;
 }
 
 async function buildMergedPage(globalPage, activeIds) {
-  if (!activeIds.length) return { items: [], totalAcrossSources: 0, totalPages: 1 };
-
-  const n = activeIds.length;
-  const perSourceCount = Math.ceil(GLOBAL_PAGE_SIZE / n);
-  const startOcc = (globalPage - 1) * perSourceCount;
-  const endOcc = startOcc + perSourceCount; // exclusive
-
-  const startBackendPage = Math.floor(startOcc / 20) + 1;
-  const endBackendPage = Math.floor((endOcc - 1) / 20) + 1;
+  if (!activeIds.length) {
+    return { items: [], page: 1, totalAcrossSources: 0, totalPages: 1, failedSources: [] };
+  }
 
   const sourceMap = Object.fromEntries(sourcesCache.map((s) => [s.id, s]));
-  const perSourceSlices = {};
-  let totalAcrossSources = 0;
+  const firstPages = await Promise.all(activeIds.map((id) => fetchSourcePage(id, 1)));
+  const sourceTotals = Object.fromEntries(
+    activeIds.map((id, index) => [id, firstPages[index].total])
+  );
+  const failedSources = new Set(
+    activeIds.filter((id, index) => firstPages[index].failed)
+  );
 
-  await Promise.all(activeIds.map(async (id) => {
-    const pagesNeeded = startBackendPage === endBackendPage
-      ? [startBackendPage]
-      : [startBackendPage, endBackendPage];
-    const fetched = await Promise.all(pagesNeeded.map((p) => fetchSourcePage(id, p)));
+  const plan = MergedPagination.buildPagePlan(
+    sourceTotals,
+    activeIds,
+    globalPage,
+    GLOBAL_PAGE_SIZE
+  );
 
-    let combined = [];
-    fetched.forEach((f, i) => {
-      combined = combined.concat(f.items.map((item, idx) => ({
-        item, globalOffset: (pagesNeeded[i] - 1) * 20 + idx,
-      })));
-    });
-    const total = fetched[fetched.length - 1]?.total || fetched[0]?.total || 0;
-    if (total) totalAcrossSources += total;
+  const neededPageKeys = new Set();
+  for (const ref of plan.refs) {
+    const backendPage = Math.floor(ref.localOffset / 20) + 1;
+    neededPageKeys.add(`${ref.sourceId}:${backendPage}`);
+  }
 
-    const slice = combined
-      .filter((c) => c.globalOffset >= startOcc && c.globalOffset < endOcc)
-      .map((c) => c.item);
-    perSourceSlices[id] = slice;
+  const pageData = new Map();
+  await Promise.all([...neededPageKeys].map(async (pageKey) => {
+    const separator = pageKey.lastIndexOf(":");
+    const sourceId = pageKey.slice(0, separator);
+    const backendPage = Number(pageKey.slice(separator + 1));
+    const data = await fetchSourcePage(sourceId, backendPage);
+    pageData.set(pageKey, data);
+    if (data.failed) failedSources.add(sourceId);
   }));
 
-  const merged = [];
-  for (let i = 0; i < perSourceCount; i++) {
-    for (const id of activeIds) {
-      const slice = perSourceSlices[id];
-      if (slice && slice[i]) merged.push({ tech: slice[i], source: sourceMap[id] });
+  const items = [];
+  for (const ref of plan.refs) {
+    const backendPage = Math.floor(ref.localOffset / 20) + 1;
+    const pageKey = `${ref.sourceId}:${backendPage}`;
+    const tech = pageData.get(pageKey)?.items[ref.localOffset % 20];
+    if (tech) {
+      items.push({ tech, source: sourceMap[ref.sourceId] });
+    } else {
+      failedSources.add(ref.sourceId);
     }
   }
 
-  const totalPages = totalAcrossSources ? Math.max(1, Math.ceil(totalAcrossSources / GLOBAL_PAGE_SIZE)) : 1;
-  return { items: merged.slice(0, GLOBAL_PAGE_SIZE), totalAcrossSources, totalPages };
+  return {
+    items,
+    page: plan.page,
+    totalAcrossSources: plan.totalAcrossSources,
+    totalPages: plan.totalPages,
+    failedSources: [...failedSources],
+  };
 }
 
 function renderMergedGrid(items) {
@@ -619,6 +666,7 @@ async function renderResults() {
   }
 
   if (token !== renderResultsToken) return; // a newer call already started; discard this stale result
+  state.mergedPage = merged.page;
 
   // Blank state — no search term and no filters applied. Show only the
   // participating source information (name, coverage, counts) rather than
@@ -636,14 +684,18 @@ async function renderResults() {
   } else {
     const redirectHtml = redirectSources.map(redirectSourceBlock).join("");
     const gridHtml = renderMergedGrid(merged.items);
-    const paginationHtml = merged.items.length ? renderPaginationBar(state.mergedPage, merged.totalPages) : "";
+    const paginationHtml = merged.items.length ? renderPaginationBar(merged.page, merged.totalPages) : "";
     const headerHtml = merged.items.length
-      ? mergedGridHeader(activeIds, state.mergedPage, merged.totalPages, merged.totalAcrossSources)
+      ? mergedGridHeader(activeIds, merged.page, merged.totalPages, merged.totalAcrossSources)
+      : "";
+    const partialHtml = merged.failedSources.length
+      ? `<p class="results-warning" role="status">Some source platforms could not be reached. The results shown are partial; please try again later.</p>`
       : "";
 
     els.results.innerHTML = `
       <div class="merged-grid-wrap">
         ${headerHtml}
+        ${partialHtml}
         ${gridHtml}
         ${paginationHtml}
       </div>
