@@ -160,7 +160,6 @@ const escapeHtml = (s) => normalizeDisplayText(s).replace(/[&<>"']/g, (c) => ESC
 const safeUrl = (url) => /^https?:\/\//i.test(url || "") ? url : "";
 
 function technologyCard(technology, source) {
-  const techId = escapeHtml(technology.id.replace("ntb_", ""));
   const keywords = technology.keywords.slice(0, 3);
   const sectorCodes = technology.sector_codes || [];
   const sectorLabels = technology.sector_labels || [];
@@ -181,7 +180,6 @@ function technologyCard(technology, source) {
     ["Source category",   technology.source_sector],
     ["Sub-sector",        technology.sub_sector],
     ["Registered",        technology.reg_date],
-    ["Tech ID",           techId],
   ]
     .filter(([, v]) => v)
     .map(([label, value]) => `
