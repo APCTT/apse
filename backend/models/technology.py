@@ -1,5 +1,5 @@
 from datetime import datetime
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class Technology(BaseModel):
@@ -20,6 +20,15 @@ class Technology(BaseModel):
     dev_status: str = ""
     reg_date: str = ""
     sub_sector: str = ""
+    # Shared taxonomy fields. `source_sector` preserves the provider's original
+    # category while `sector_codes` and `sector_labels` use ISO ICS.
+    source_sector: str = ""
+    sector_codes: list[str] = Field(default_factory=list)
+    sector_labels: list[str] = Field(default_factory=list)
+    taxonomy_scheme: str = ""
+    taxonomy_version: str = ""
+    classification_method: str = ""
+    classification_confidence: str = ""
 
 
 class Source(BaseModel):
@@ -31,3 +40,4 @@ class Source(BaseModel):
     url: str
     ttl_seconds: int
     transfer_type: str = ""
+    sector_filter_supported: bool = False

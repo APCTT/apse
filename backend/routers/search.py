@@ -12,10 +12,14 @@ from backend.config import settings
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
+SEARCH_CACHE_SCHEMA_VERSION = 3
 
 
 def _cache_key(params: dict) -> str:
-    serialized = json.dumps(params, sort_keys=True)
+    serialized = json.dumps(
+        {"schema_version": SEARCH_CACHE_SCHEMA_VERSION, "params": params},
+        sort_keys=True,
+    )
     return hashlib.md5(serialized.encode()).hexdigest()
 
 
@@ -60,6 +64,11 @@ async def search(
     if country:
         countries = {c.strip() for c in country.split(",") if c.strip()}
         active_sources = [s for s in active_sources if s.country in countries or s.country == "Global"]
+    if sector:
+        # Live API catalogues are excluded until their native category or IPC
+        # values have a verified mapping to ISO ICS. This keeps totals and
+        # pagination truthful instead of filtering only the current API page.
+        active_sources = [s for s in active_sources if s.sector_filter_supported]
     if transfer_type:
         transfer_types = {t.strip() for t in transfer_type.split(",") if t.strip()}
         active_sources = [s for s in active_sources if s.transfer_type in transfer_types]

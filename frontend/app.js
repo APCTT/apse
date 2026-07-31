@@ -5,41 +5,31 @@ const API_BASE = LOCAL_HOSTS.has(window.location.hostname)
 
 // Runtime state — sources populated on init, technologies fetched on each search
 let sourcesCache = [];
+let sectorOptionsCache = [];
 
 const GLOBAL_PAGE_SIZE = 20;
-
-const SECTOR_OPTIONS = [
-  { value: "Agriculture", label: "Agriculture & Food" },
-  { value: "Energy", label: "Energy & Environment" },
-  { value: "ICT", label: "Information & Communication Technology" },
-  { value: "Health", label: "Health & Medical" },
-  { value: "Manufacturing", label: "Manufacturing & Materials" },
-  { value: "Water", label: "Water & Sanitation" },
-  { value: "Transport", label: "Transport & Infrastructure" },
-  { value: "Biotechnology", label: "Biotechnology" },
-  { value: "Climate", label: "Climate & Disaster Risk" },
-  { value: "Construction", label: "Construction & Urban Development" },
-  { value: "Chemical", label: "Chemical & Pharmaceutical" },
-  { value: "Electronics", label: "Electronics & Semiconductors" },
-  // Added from NRDC India's 11 categories — not covered by the generic
-  // buckets above (or distinct enough to keep separately filterable).
-  { value: "Agro & Food Processing", label: "Agro & Food Processing" },
-  { value: "Chemical and Allied", label: "Chemical and Allied" },
-  { value: "Civil Engineering", label: "Civil Engineering" },
-  { value: "Coir", label: "Coir" },
-  { value: "Electrical & Electronics", label: "Electrical & Electronics" },
-  { value: "Engineering Sciences", label: "Engineering Sciences" },
-  { value: "Glass & Ceramics", label: "Glass & Ceramics" },
-  { value: "Herbal / Home/ Personal / Hygiene Care", label: "Herbal / Home / Personal / Hygiene Care" },
-  { value: "Life Sciences", label: "Life Sciences" },
-  { value: "Sericulture", label: "Sericulture" },
-  { value: "Food & Millet", label: "Food & Millet" },
-];
 
 const DBTYPE_OPTIONS = [
   { value: "Metadata search", label: "Full technology listings" },
   { value: "Search redirect", label: "External search redirect" },
 ];
+
+// Only these editorially approved topics are eligible for aggregate counting.
+// Arbitrary text entered by users is never sent to the analytics endpoint.
+const TRACKED_TOPIC_ALIASES = new Set([
+  "climate resilience",
+  "climate adaptation",
+  "renewable energy",
+  "ai",
+  "artificial intelligence",
+  "agriculture",
+  "agricultural technology",
+  "water",
+  "water treatment",
+  "health technology",
+  "healthcare technology",
+  "health care technology",
+]);
 
 const state = {
   query: "",
@@ -47,9 +37,11 @@ const state = {
   sectors: [],
   databaseTypes: [],
   sources: [],
-  transferTypes: [],
+  resultsView: "list",
   mergedPage: 1,
 };
+
+const FILTER_STATE_KEYS = ["countries", "sectors", "databaseTypes", "sources"];
 
 const els = {
   form: document.querySelector("#search-form"),
@@ -61,44 +53,46 @@ const els = {
   sectorMs: document.querySelector("#sector-multiselect"),
   dbtypeMs: document.querySelector("#dbtype-multiselect"),
   sourceMs: document.querySelector("#source-multiselect"),
-  transferTypeMs: document.querySelector("#transfertype-multiselect"),
   clear: document.querySelector("#clear-filters"),
   filters: document.querySelector(".filters"),
   statsBar: document.querySelector("#global-stats-bar"),
+  activeFilters: document.querySelector("#active-filters"),
+  resetFilters: document.querySelector(".reset-filters"),
+  filterBackdrop: document.querySelector(".filter-backdrop"),
+  mobileFilterCount: document.querySelector(".mobile-filter-count"),
+  app: document.querySelector(".apse"),
 };
 
-// ── Multi-select filter widget ───────────────────────────────────────────────
+// ── Facet filter groups ──────────────────────────────────────────────────────
 
 const multiselectInstances = [];
 
-function initMultiselect(containerEl, options, getSelected, onChange) {
+function initMultiselect(containerEl, options, getSelected, onChange, { defaultOpen = false } = {}) {
+  let isOpen = defaultOpen;
+  const groupLabel = containerEl.previousElementSibling?.textContent?.trim() || "Filter";
+
   function render() {
     const selected = getSelected();
-    const label = selected.length === 0
-      ? containerEl.dataset.label
-      : selected.length === 1
-        ? (options.find((o) => o.value === selected[0])?.label || selected[0])
-        : `${selected.length} selected`;
 
     containerEl.innerHTML = `
-      <button type="button" class="multiselect-toggle">
-        <span>${label}</span>
+      <button type="button" class="facet-group-toggle" aria-expanded="${isOpen}">
+        <span>${escapeHtml(groupLabel)}${selected.length ? ` <strong>${selected.length}</strong>` : ""}</span>
         <svg viewBox="0 0 20 20" aria-hidden="true"><path d="m5 8 5 5 5-5" /></svg>
       </button>
-      <div class="multiselect-panel" hidden>
+      <div class="facet-options" ${isOpen ? "" : "hidden"}>
         ${options.map((o) => `
-          <label class="multiselect-option">
-            <input type="checkbox" value="${o.value}" ${selected.includes(o.value) ? "checked" : ""}>
-            <span>${o.label}</span>
+          <label class="facet-option">
+            <span>
+              <input type="checkbox" value="${escapeHtml(o.value)}" ${selected.includes(o.value) ? "checked" : ""}>
+              <span>${escapeHtml(o.label)}</span>
+            </span>
+            ${Number.isFinite(o.count) ? `<small>${o.count.toLocaleString()}</small>` : ""}
           </label>`).join("")}
       </div>`;
 
-    containerEl.querySelector(".multiselect-toggle").addEventListener("click", (e) => {
-      e.stopPropagation();
-      const panel = containerEl.querySelector(".multiselect-panel");
-      const willOpen = panel.hasAttribute("hidden");
-      multiselectInstances.forEach((c) => c.querySelector(".multiselect-panel")?.setAttribute("hidden", ""));
-      if (willOpen) panel.removeAttribute("hidden");
+    containerEl.querySelector(".facet-group-toggle").addEventListener("click", () => {
+      isOpen = !isOpen;
+      render();
     });
 
     containerEl.querySelectorAll('input[type="checkbox"]').forEach((cb) => {
@@ -106,20 +100,21 @@ function initMultiselect(containerEl, options, getSelected, onChange) {
         const next = [...containerEl.querySelectorAll('input[type="checkbox"]:checked')].map((x) => x.value);
         onChange(next);
         render();
-        containerEl.querySelector(".multiselect-panel").removeAttribute("hidden");
       });
     });
   }
   render();
   containerEl._render = render;
+  containerEl._setOptions = (nextOptions) => {
+    options = nextOptions;
+    render();
+  };
   multiselectInstances.push(containerEl);
 }
 
-document.addEventListener("click", (e) => {
-  multiselectInstances.forEach((c) => {
-    if (!c.contains(e.target)) c.querySelector(".multiselect-panel")?.setAttribute("hidden", "");
-  });
-});
+function syncFacetControls() {
+  multiselectInstances.forEach((container) => container._render?.());
+}
 
 // ── Helpers (unchanged) ──────────────────────────────────────────────────────
 
@@ -143,7 +138,22 @@ const sourceInitials = (name) =>
 // trust them into innerHTML unescaped (a scraped title/summary containing
 // "<img onerror=...>" would otherwise execute in every visitor's browser).
 const ESCAPE_MAP = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" };
-const escapeHtml = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ESCAPE_MAP[c]);
+const MOJIBAKE_REPLACEMENTS = [
+  ["â€“", "–"],
+  ["â€”", "—"],
+  ["â€™", "’"],
+  ["â€˜", "‘"],
+  ["â€œ", "“"],
+  ["â€", "”"],
+  ["â€¦", "…"],
+  ["Â°C", "°C"],
+  ["Â ", " "],
+];
+const normalizeDisplayText = (value) => MOJIBAKE_REPLACEMENTS.reduce(
+  (text, [broken, corrected]) => text.replaceAll(broken, corrected),
+  String(value ?? "")
+);
+const escapeHtml = (s) => normalizeDisplayText(s).replace(/[&<>"']/g, (c) => ESCAPE_MAP[c]);
 
 // Only allow http(s) links out to external sources — blocks a crawled
 // record's url field from carrying a "javascript:" or "data:" payload.
@@ -151,12 +161,24 @@ const safeUrl = (url) => /^https?:\/\//i.test(url || "") ? url : "";
 
 function technologyCard(technology, source) {
   const techId = escapeHtml(technology.id.replace("ntb_", ""));
-  const keywords = technology.keywords.slice(0, 6);
+  const keywords = technology.keywords.slice(0, 3);
+  const sectorCodes = technology.sector_codes || [];
+  const sectorLabels = technology.sector_labels || [];
+  const selectedSectorCode = sectorCodes.find((code) =>
+    state.sectors.some((selected) => code === selected || code.startsWith(`${selected}.`))
+  );
+  const sectorIndex = selectedSectorCode ? sectorCodes.indexOf(selectedSectorCode) : 0;
+  const sectorLabel = sectorLabels[sectorIndex] || technology.sector;
+  const additionalSectorCount = Math.max(0, sectorLabels.length - 1);
+  const sectorDisplay = sectorLabel
+    ? `${escapeHtml(sectorLabel)}${additionalSectorCount ? ` +${additionalSectorCount}` : ""}`
+    : escapeHtml(technology.sector);
+  const allSectors = sectorLabels.join(", ");
 
   const detailRows = [
     ["Organisation",      technology.org_name],
-    ["Transfer type",     technology.transfer_type],
-    ["Dev. status",       technology.dev_status],
+    ["Sectors",           allSectors],
+    ["Source category",   technology.source_sector],
     ["Sub-sector",        technology.sub_sector],
     ["Registered",        technology.reg_date],
     ["Tech ID",           techId],
@@ -172,12 +194,18 @@ function technologyCard(technology, source) {
   const needsTranslation = technology.language === "Korean";
   const flag = (SOURCE_DETAIL[source.id] || {}).flag || "";
   const url = safeUrl(technology.url);
+  const quickMeta = [
+    technology.dev_status,
+  ].filter(Boolean);
 
   return `
     <article class="technology-card" data-tech-id="${escapeHtml(technology.id)}" ${needsTranslation ? 'data-needs-translation="true"' : ""}>
       <div class="card-top-row">
-        <span class="card-sector">${escapeHtml(technology.sector)}</span>
-        <span class="card-source-pill" title="${escapeHtml(source.name)}">${flag} ${escapeHtml(source.name)}</span>
+        <div class="card-context">
+          <span class="card-sector">${sectorDisplay}</span>
+          <span class="card-country">${flag} ${escapeHtml(source.country)}</span>
+        </div>
+        <span class="card-source-pill" title="${escapeHtml(source.name)}">${escapeHtml(source.name)}</span>
       </div>
       <h4 class="card-title">${escapeHtml(technology.title)}</h4>
       <p class="card-summary">${escapeHtml(technology.summary) || "No summary available."}</p>
@@ -185,16 +213,19 @@ function technologyCard(technology, source) {
         <div class="card-keywords">
           ${keywords.map((k) => `<span class="keyword-tag">${escapeHtml(k)}</span>`).join("")}
         </div>` : ""}
-      <div class="card-details">
-        <span>${escapeHtml(source.country)}</span>
-        <span>${escapeHtml(technology.language)}</span>
-        <span>${escapeHtml(source.name)}</span>
-      </div>
-      <div class="card-detail-panel">
-        ${detailRows}
-      </div>
-      <div class="card-actions">
-        ${url ? `<a class="button button-secondary card-external-link" href="${url}" target="_blank" rel="noopener noreferrer">${technology.source_id === "ip_australia" ? "Search patent ↗" : "View on source ↗"}</a>` : ""}
+      ${quickMeta.length ? `
+        <div class="card-details">
+          ${quickMeta.map((value) => `<span>${escapeHtml(value)}</span>`).join("")}
+        </div>` : ""}
+      <div class="card-footer">
+        ${detailRows ? `
+          <details class="card-detail-disclosure">
+            <summary>More details</summary>
+            <div class="card-detail-panel">${detailRows}</div>
+          </details>` : "<span></span>"}
+        <div class="card-actions">
+          ${url ? `<a class="button button-primary card-external-link" href="${url}" target="_blank" rel="noopener noreferrer">${technology.source_id === "ip_australia" ? "View patent source ↗" : "View original source ↗"}</a>` : ""}
+        </div>
       </div>
     </article>
   `;
@@ -275,34 +306,42 @@ function buildRedirectUrl(source, query) {
 
 function redirectSourceBlock(source) {
   const info = REDIRECT_SOURCE_INFO[source.id];
-  const content = `<div class="technology-list">
+  const content = `<div class="technology-list redirect-technology-list view-grid">
         ${info ? info.cards.map((card) => `
           <article class="technology-card external-card">
-            <span class="card-sector">${card.sector}</span>
+            <div class="card-top-row">
+              <div class="card-context">
+                <span class="card-sector">${card.sector}</span>
+                <span class="card-country">${card.country}</span>
+              </div>
+              <span class="card-source-pill">${source.name}</span>
+            </div>
             <h4 class="card-title">${card.title}</h4>
             <p class="card-summary">${card.description}</p>
-            <div class="card-details">
-              <span>${card.country}</span>
-              <span>${card.org}</span>
-            </div>
-            <div class="card-actions">
-              <a class="button button-secondary card-external-link"
-                 href="${buildRedirectUrl(source, state.query)}"
-                 target="_blank" rel="noopener noreferrer">
-                Search on ${source.name}&nbsp; →
-              </a>
+            <div class="card-footer">
+              <span class="redirect-card-organisation">${card.org}</span>
+              <div class="card-actions">
+                <a class="button button-primary card-external-link"
+                   href="${buildRedirectUrl(source, state.query)}"
+                   target="_blank" rel="noopener noreferrer">
+                  Search on ${source.name}&nbsp; →
+                </a>
+              </div>
             </div>
           </article>`).join("") : ""}
       </div>`;
 
   return `
-    <section class="source-group" data-source-id="${source.id}">
-      <header class="group-header">
-        <div class="group-source">
-          <span class="source-initial" aria-hidden="true">${sourceInitials(source.name)}</span>
-          <div>
-            <h3>${source.name}</h3>
-            <p>${source.country}</p>
+    <section class="redirect-source-section" data-source-id="${source.id}">
+      <header class="redirect-source-heading">
+        <div>
+          <span class="section-kicker">External patent search</span>
+          <div class="redirect-source-title">
+            <span class="source-initial" aria-hidden="true">${sourceInitials(source.name)}</span>
+            <div>
+              <h3>${source.name}</h3>
+              <p>${source.country}</p>
+            </div>
           </div>
         </div>
         <div class="group-meta">
@@ -311,8 +350,7 @@ function redirectSourceBlock(source) {
         </div>
       </header>
       ${content}
-    </section>
-  `;
+    </section>`;
 }
 
 function renderPaginationBar(current, total) {
@@ -362,7 +400,6 @@ function sourcePageCacheKey(sourceId, backendPage) {
     query: state.query,
     countries: state.countries,
     sectors: state.sectors,
-    transferTypes: state.transferTypes,
   });
 }
 
@@ -464,7 +501,7 @@ function renderMergedGrid(items) {
       : "No matching technologies found";
     return `<div class="empty-state"><h3>${heading}</h3><p>Try a broader keyword or clear one of the filters.</p></div>`;
   }
-  return `<div class="technology-list merged-grid">
+  return `<div class="technology-list merged-grid view-${state.resultsView}">
     ${items.map(({ tech, source }) => technologyCard(tech, source)).join("")}
   </div>`;
 }
@@ -477,17 +514,84 @@ async function fetchSources() {
   return res.json();
 }
 
+async function loadPopularSearches() {
+  const container = document.querySelector("#popular-chips");
+  const label = document.querySelector("#popular-searches-label");
+  if (!container) return;
+  try {
+    const res = await fetch(`${API_BASE}/popular-searches`);
+    if (!res.ok) throw new Error("Popular searches fetch failed");
+    const data = await res.json();
+    const topics = Array.isArray(data.topics) ? data.topics.slice(0, 6) : [];
+    if (!topics.length) return;
+    container.innerHTML = topics.map((topic) => `
+      <button type="button" data-keyword="${escapeHtml(topic.query)}">${escapeHtml(topic.label)}</button>
+    `).join("");
+    const hasRecentActivity = topics.some((topic) => Number(topic.count) > 0);
+    if (label) {
+      label.textContent = hasRecentActivity
+        ? `Popular searches · last ${Number(data.window_days) || 30} days`
+        : "Suggested searches";
+    }
+  } catch {
+    // Keep the editorial fallback already present in the HTML.
+  }
+}
+
+function recordTrackedTopicSearch(query) {
+  const normalized = normalizeDisplayText(query).trim().toLowerCase().replace(/\s+/g, " ");
+  if (!TRACKED_TOPIC_ALIASES.has(normalized)) return;
+  fetch(`${API_BASE}/search-events`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ query: normalized }),
+  }).catch(() => {});
+}
+
 async function fetchFacets() {
-  const res = await fetch(`${API_BASE}/facets`);
+  const params = new URLSearchParams();
+  if (state.query) params.set("q", state.query);
+  if (state.countries.length) params.set("country", state.countries.join(","));
+  if (state.sectors.length) params.set("sector", state.sectors.join(","));
+  if (state.sources.length) params.set("source", state.sources.join(","));
+  if (state.databaseTypes.length) params.set("database_type", state.databaseTypes.join(","));
+  const res = await fetch(`${API_BASE}/facets?${params}`);
   if (!res.ok) throw new Error("Facets fetch failed");
   return res.json();
 }
 
-// Render's free tier spins the backend down when idle — the first request
-// after a while can take up to ~30-40s to wake it up, and a bare fetch
-// failure would otherwise dead-end the page until the user manually retries
-// (e.g. by clicking "Clear filters"). Retry silently in the background
-// instead so the page self-heals on first load.
+function updateFacetOptions(facets) {
+  const countryOptions = (facets.countries || []).map((item) => ({
+    value: item.value,
+    label: item.label,
+    count: item.count,
+  }));
+  const sectorOptions = (facets.sectors || []).map((item) => ({
+    value: item.value,
+    label: item.label,
+    count: item.count,
+  }));
+  const sourceOptions = (facets.sources || []).map((item) => ({
+    value: item.value,
+    label: item.label,
+    count: item.count,
+  }));
+  sectorOptionsCache = sectorOptions;
+  if (countryOptions.length) els.countryMs._setOptions?.(countryOptions);
+  if (sectorOptions.length) els.sectorMs._setOptions?.(sectorOptions);
+  if (sourceOptions.length) els.sourceMs._setOptions?.(sourceOptions);
+}
+
+async function refreshFacetCounts(token) {
+  const facets = await fetchFacets();
+  if (token !== renderResultsToken) return;
+  updateFacetOptions(facets);
+  renderActiveFilters();
+}
+
+// A sleeping, restarting, or freshly deployed backend can make the first
+// request slow. Retry silently so the page self-heals instead of requiring
+// the user to click "Clear filters" or reload manually.
 async function withWakeupRetry(fn, { attempts = 6, delayMs = 6000, onRetry } = {}) {
   let lastErr;
   for (let i = 0; i < attempts; i++) {
@@ -512,7 +616,6 @@ async function fetchResults(overrides = {}) {
   if (state.query)          params.set("q", state.query);
   if (state.countries.length) params.set("country", state.countries.join(","));
   if (state.sectors.length)   params.set("sector", state.sectors.join(","));
-  if (state.transferTypes.length) params.set("transfer_type", state.transferTypes.join(","));
   if (src)            params.set("source", src);
   if (excl)           params.set("exclude", excl);
   if (page > 1)       params.set("page", page);
@@ -528,11 +631,53 @@ function updateStatsBar(totalTechs, totalSources, totalCountries) {
   els.statsBar.querySelector("#gsb-stat-techs").textContent = totalTechs.toLocaleString();
   els.statsBar.querySelector("#gsb-stat-sources").textContent = totalSources.toLocaleString();
   els.statsBar.querySelector("#gsb-stat-countries").textContent = totalCountries.toLocaleString();
+  const label = els.statsBar.querySelector("#gsb-stat-techs-label");
+  if (label) label.textContent = hasActiveSearch() ? "Matching records" : "Indexed records";
+}
+
+function hasActiveSearch() {
+  return Boolean(
+    state.query ||
+    state.countries.length ||
+    state.sectors.length ||
+    state.databaseTypes.length ||
+    state.sources.length
+  );
+}
+
+function syncSearchMode() {
+  els.app?.classList.toggle("has-active-search", hasActiveSearch());
+  const activeFilterCount = FILTER_STATE_KEYS.reduce((total, key) => total + state[key].length, 0);
+  if (els.mobileFilterCount) {
+    els.mobileFilterCount.textContent = activeFilterCount;
+    els.mobileFilterCount.hidden = activeFilterCount === 0;
+  }
+}
+
+function renderActiveFilters() {
+  if (!els.activeFilters) return;
+  const sourceMap = Object.fromEntries(sourcesCache.map((source) => [source.id, source.name]));
+  const sectorMap = Object.fromEntries(sectorOptionsCache.map((sector) => [sector.value, sector.label]));
+  const items = [
+    ...(state.query ? [{ type: "query", value: state.query, label: `Keyword: ${state.query}` }] : []),
+    ...state.countries.map((value) => ({ type: "countries", value, label: value })),
+    ...state.sectors.map((value) => ({ type: "sectors", value, label: sectorMap[value] || value })),
+    ...state.databaseTypes.map((value) => ({ type: "databaseTypes", value, label: value })),
+    ...state.sources.map((value) => ({ type: "sources", value, label: sourceMap[value] || value })),
+  ];
+
+  els.activeFilters.innerHTML = items.map((item) => `
+    <button type="button" class="active-filter-chip" data-filter-type="${item.type}" data-filter-value="${escapeHtml(item.value)}">
+      <span>${escapeHtml(item.label)}</span><span aria-hidden="true">×</span>
+      <span class="visually-hidden">Remove filter</span>
+    </button>
+  `).join("");
+  els.activeFilters.hidden = items.length === 0;
 }
 
 // Clickable source chips shown under the stats row — a visual alternative to
-// the "Source platform" dropdown filter. Multi-select, kept in sync with
-// state.sources (whichever control — chip or dropdown — changed it last).
+// the "Source platform" dropdown filter. Quick chips are single-select, while
+// the dropdown supports selecting multiple sources.
 function renderSourceChips() {
   const container = document.querySelector("#gsb-source-chips");
   if (!container || !sourcesCache.length) return;
@@ -577,7 +722,7 @@ function getFilterableSourceIds() {
 
   if (state.sources.length) ids = ids.filter((id) => state.sources.includes(id));
   if (state.countries.length) ids = ids.filter((id) => state.countries.includes(sourceMap[id]?.country));
-  if (state.transferTypes.length) ids = ids.filter((id) => state.transferTypes.includes(sourceMap[id]?.transfer_type));
+  if (state.sectors.length) ids = ids.filter((id) => sourceMap[id]?.sector_filter_supported);
 
   return ids;
 }
@@ -604,7 +749,7 @@ function getRedirectSources() {
     s.status === "Search redirect" &&
     (!state.sources.length || state.sources.includes(s.id)) &&
     (!state.countries.length || state.countries.includes(s.country)) &&
-    (!state.transferTypes.length || state.transferTypes.includes(s.transfer_type))
+    !state.sectors.length
   );
 }
 
@@ -622,7 +767,7 @@ function mergedGridHeader(activeIds, mergedPage, totalPages, totalAcrossSources)
         </div>
       </div>
       <div class="group-meta">
-        <span class="result-count">Page ${mergedPage} of ${totalPages.toLocaleString()} (${totalAcrossSources.toLocaleString()} total)</span>
+        <span class="result-count">Page ${mergedPage} of ${totalPages.toLocaleString()} · ${totalAcrossSources.toLocaleString()} matching records</span>
         <span class="status status-metadata">Metadata search</span>
       </div>
     </header>`;
@@ -633,6 +778,9 @@ async function renderResults() {
   // resolve out of order; only the most recent call is allowed to write to
   // the DOM, so a slow stale response can't clobber a newer one.
   const token = ++renderResultsToken;
+  syncSearchMode();
+  renderActiveFilters();
+  refreshFacetCounts(token).catch(() => {});
 
   els.title.textContent = state.query ? `Results for "${state.query}"` : "Technology search results";
   els.summary.textContent = "Searching across source platforms…";
@@ -671,30 +819,26 @@ async function renderResults() {
   // Blank state — no search term and no filters applied. Show only the
   // participating source information (name, coverage, counts) rather than
   // flooding the page with an unrequested pile of technology cards.
-  const isBlankState = !state.query && !state.countries.length && !state.sectors.length
-    && !state.databaseTypes.length && !state.sources.length && !state.transferTypes.length;
+  const isBlankState = !hasActiveSearch();
 
   if (isBlankState) {
     els.results.innerHTML = `
       <div class="empty-state browse-prompt">
-        <h3>Search or filter to explore technologies</h3>
-        <p>Enter a keyword above, or use the filters to narrow by country, sector, or source. You can also browse the <a href="#sources">participating technology sources</a> below.</p>
+        <span class="browse-prompt-kicker">Start exploring</span>
+        <h3>Find technology offers across the <span class="nowrap">Asia-Pacific</span> region</h3>
+        <p>Search by keyword above, choose a popular topic, or browse <a class="nowrap" href="#sources">participating sources</a>.</p>
       </div>`;
     els.summary.textContent = "Explore technology offers from participating source platforms.";
   } else {
     const redirectHtml = redirectSources.map(redirectSourceBlock).join("");
     const gridHtml = renderMergedGrid(merged.items);
     const paginationHtml = merged.items.length ? renderPaginationBar(merged.page, merged.totalPages) : "";
-    const headerHtml = merged.items.length
-      ? mergedGridHeader(activeIds, merged.page, merged.totalPages, merged.totalAcrossSources)
-      : "";
     const partialHtml = merged.failedSources.length
       ? `<p class="results-warning" role="status">Some source platforms could not be reached. The results shown are partial; please try again later.</p>`
       : "";
 
     els.results.innerHTML = `
       <div class="merged-grid-wrap">
-        ${headerHtml}
         ${partialHtml}
         ${gridHtml}
         ${paginationHtml}
@@ -702,15 +846,23 @@ async function renderResults() {
       ${redirectHtml}`;
     autoTranslateVisibleCards();
 
-    els.summary.textContent = merged.items.length
-      ? "Explore technology offers from participating source platforms."
-      : "No results on this page — try adjusting your filters.";
+    if (!merged.items.length) els.summary.textContent = "No results on this page — try adjusting your filters.";
   }
 
   const includesNTB = activeIds.includes("korea_ntb");
   const sourceMap = Object.fromEntries(sourcesCache.map((s) => [s.id, s]));
   const totalCountries = new Set(filterableIds.map((id) => sourceMap[id]?.country).filter(Boolean)).size;
-  updateStatsBar(merged.totalAcrossSources, filterableIds.length, totalCountries);
+  const totalVisibleSources = new Set([
+    ...filterableIds,
+    ...redirectSources.map((source) => source.id),
+  ]).size;
+  updateStatsBar(merged.totalAcrossSources, totalVisibleSources, totalCountries);
+  if (!isBlankState) {
+    els.title.textContent = state.query
+      ? `${merged.totalAcrossSources.toLocaleString()} results for "${state.query}"`
+      : `${merged.totalAcrossSources.toLocaleString()} matching records`;
+    els.summary.textContent = `${totalVisibleSources.toLocaleString()} participating source${totalVisibleSources === 1 ? "" : "s"} · ${totalCountries.toLocaleString()} member state${totalCountries === 1 ? "" : "s"}`;
+  }
 
   // Fetch Korea NTB's live total in the background purely for the tech-count
   // total, when it matches the active filters but was trimmed from the
@@ -722,7 +874,13 @@ async function renderResults() {
       .then((data) => {
         const ntbTotal = data.source_totals?.korea_ntb || 0;
         if (lastActiveIds !== activeIds) return; // a newer search superseded this one
-        updateStatsBar(merged.totalAcrossSources + ntbTotal, filterableIds.length, totalCountries);
+        const combinedTotal = merged.totalAcrossSources + ntbTotal;
+        updateStatsBar(combinedTotal, totalVisibleSources, totalCountries);
+        if (hasActiveSearch()) {
+          els.title.textContent = state.query
+            ? `${combinedTotal.toLocaleString()} results for "${state.query}"`
+            : `${combinedTotal.toLocaleString()} matching records`;
+        }
       })
       .catch(() => {});
   }
@@ -814,6 +972,12 @@ const SOURCE_DETAIL = {
 function sourceDetailCard(source) {
   const detail = SOURCE_DETAIL[source.id] || {};
   const initials = sourceInitials(source.name);
+  const isRedirect = source.status === "Search redirect";
+  const accessLabel = isRedirect ? "External search" : "Searchable catalogue";
+  const capabilities = [
+    !isRedirect ? "Keyword search" : "",
+    source.sector_filter_supported ? "ISO sector filters" : "",
+  ].filter(Boolean);
   return `
     <article class="source-detail-card" id="source-${source.id}">
       <div class="sdc-header">
@@ -821,44 +985,32 @@ function sourceDetailCard(source) {
           <span class="source-initial sdc-initial" aria-hidden="true">${initials}</span>
           <div>
             <h3 class="sdc-name">${source.name}</h3>
-            <p class="sdc-country">${detail.flag || ""} ${source.country}</p>
+            <p class="sdc-institution">${source.institution}</p>
           </div>
         </div>
-        <span class="status ${statusClass(source.status)}">${source.status}</span>
       </div>
 
-      ${detail.size ? `
-      <div class="sdc-stat">
-        <span class="sdc-stat-number">${detail.size}</span>
-        <span class="sdc-stat-label">${detail.sizeLabel}</span>
+      <div class="sdc-access-row">
+        <span class="sdc-country">${detail.flag || ""} ${source.country}</span>
+        <span class="sdc-access ${isRedirect ? "is-external" : "is-searchable"}"><i aria-hidden="true"></i>${accessLabel}</span>
+      </div>
+
+      ${detail.size ? `<div class="sdc-catalogue-size">
+        <strong>${detail.size}</strong>
+        <span>${detail.sizeLabel} represented</span>
       </div>` : ""}
 
       <p class="sdc-description">${detail.description || ""}</p>
 
-      <div class="sdc-meta">
-        <div class="sdc-meta-row">
-          <span class="sdc-meta-label">Institution</span>
-          <span class="sdc-meta-value">${source.institution}</span>
-        </div>
-        <div class="sdc-meta-row">
-          <span class="sdc-meta-label">Coverage</span>
-          <span class="sdc-meta-value">${detail.coverage || source.country}</span>
-        </div>
-        ${detail.searchHint ? `
-        <div class="sdc-meta-row">
-          <span class="sdc-meta-label">Search tip</span>
-          <span class="sdc-meta-value sdc-hint">${detail.searchHint}</span>
-        </div>` : ""}
-      </div>
+      ${capabilities.length ? `<div class="sdc-capabilities" aria-label="Available Gateway features">
+        ${capabilities.map((capability) => `<span>${capability}</span>`).join("")}
+      </div>` : ""}
 
       <div class="sdc-actions">
-        <button class="button button-primary sdc-search-btn"
-          onclick="openSourcePage('${source.id}')">
-          View details
-        </button>
-        <a class="button button-secondary" href="${source.url}" target="_blank" rel="noopener noreferrer">
-          Visit source ↗
-        </a>
+        ${isRedirect
+          ? `<a class="button button-primary" href="${source.url}" target="_blank" rel="noopener noreferrer">Search official database ↗</a>`
+          : `<button class="button button-primary sdc-search-btn" onclick="selectOnlySource('${source.id}')">Search this source</button>`}
+        <button class="button button-secondary" onclick="openSourcePage('${source.id}')">Source details</button>
       </div>
     </article>
   `;
@@ -869,7 +1021,7 @@ async function renderSourcesTable() {
   const badge = document.querySelector("#source-count-badge strong");
   try {
     const [sources, facets] = await withWakeupRetry(
-      () => Promise.all([fetchSources(), fetchFacets().catch(() => ({ transfer_types: [] }))]),
+      () => Promise.all([fetchSources(), fetchFacets().catch(() => ({ sectors: [] }))]),
       {
         onRetry: () => {
           if (grid) grid.innerHTML = `<p>Waking up the search service — this can take up to 30 seconds on first load…</p>`;
@@ -878,39 +1030,68 @@ async function renderSourcesTable() {
     );
     sourcesCache = sources;
 
-    // Populate filters — Transfer Type options are scraped from what each
-    // registered source actually uses, not a fixed generic list.
-    const countryOptions = [...new Set(sources.map((s) => s.country))].sort()
-      .map((c) => ({ value: c, label: c }));
-    const sourceOptions = sources.map((s) => ({ value: s.id, label: s.name }));
-    const transferTypeOptions = (facets.transfer_types || []).map((t) => ({ value: t, label: t }));
+    const countryOptions = (facets.countries || []).map((item) => ({
+      value: item.value,
+      label: item.label,
+      count: item.count,
+    }));
+    const sourceOptions = (facets.sources || []).map((item) => ({
+      value: item.value,
+      label: item.label,
+      count: item.count,
+    }));
+    const sectorOptions = (facets.sectors || []).map((sector) => ({
+      value: sector.value,
+      label: sector.label,
+      count: sector.count,
+    }));
+    const databaseTypeOptions = DBTYPE_OPTIONS;
+    sectorOptionsCache = sectorOptions;
 
-    initMultiselect(els.countryMs, countryOptions, () => state.countries, (next) => {
-      state.countries = next;
-      state.mergedPage = 1;
-      renderResults();
-    });
-    initMultiselect(els.sectorMs, SECTOR_OPTIONS, () => state.sectors, (next) => {
-      state.sectors = next;
-      state.mergedPage = 1;
-      renderResults();
-    });
-    initMultiselect(els.dbtypeMs, DBTYPE_OPTIONS, () => state.databaseTypes, (next) => {
-      state.databaseTypes = next;
-      state.mergedPage = 1;
-      renderResults();
-    });
-    initMultiselect(els.sourceMs, sourceOptions, () => state.sources, (next) => {
-      state.sources = next;
-      state.mergedPage = 1;
-      renderResults();
-    });
-    initMultiselect(els.transferTypeMs, transferTypeOptions, () => state.transferTypes, (next) => {
-      state.transferTypes = next;
-      state.mergedPage = 1;
-      renderResults();
-    });
-
+    initMultiselect(
+      els.countryMs,
+      countryOptions,
+      () => state.countries,
+      (next) => {
+        state.countries = next;
+        state.mergedPage = 1;
+        renderResults();
+      },
+      { defaultOpen: true }
+    );
+    initMultiselect(
+      els.sectorMs,
+      sectorOptions,
+      () => state.sectors,
+      (next) => {
+        state.sectors = next;
+        state.mergedPage = 1;
+        renderResults();
+      },
+      { defaultOpen: true }
+    );
+    initMultiselect(
+      els.dbtypeMs,
+      databaseTypeOptions,
+      () => state.databaseTypes,
+      (next) => {
+        state.databaseTypes = next;
+        state.mergedPage = 1;
+        renderResults();
+      },
+      { defaultOpen: true }
+    );
+    initMultiselect(
+      els.sourceMs,
+      sourceOptions,
+      () => state.sources,
+      (next) => {
+        state.sources = next;
+        state.mergedPage = 1;
+        renderResults();
+      },
+      { defaultOpen: true }
+    );
     // Rank by technology/patent count, largest first — search-redirect
     // sources (e.g. WIPO) have no comparable count and are excluded from
     // the ranking, kept at the end in their original order.
@@ -924,6 +1105,15 @@ async function renderSourcesTable() {
     });
 
     if (badge) badge.textContent = sources.length;
+    const countryCount = new Set(sources.map((source) => source.country)).size;
+    const indexedCount = sources.filter((source) => source.status !== "Search redirect").length;
+    const redirectCount = sources.length - indexedCount;
+    const countryCountEl = document.querySelector("#source-country-count");
+    const indexedCountEl = document.querySelector("#source-indexed-count");
+    const redirectCountEl = document.querySelector("#source-redirect-count");
+    if (countryCountEl) countryCountEl.textContent = countryCount;
+    if (indexedCountEl) indexedCountEl.textContent = indexedCount;
+    if (redirectCountEl) redirectCountEl.textContent = redirectCount;
     if (grid) grid.innerHTML = rankedSources.map(sourceDetailCard).join("");
   } catch {
     if (grid) grid.innerHTML = `<p>Could not load sources.</p>`;
@@ -951,12 +1141,16 @@ window.selectOnlySource = selectOnlySource;
 
 els.form.addEventListener("submit", (event) => {
   event.preventDefault();
+  recordTrackedTopicSearch(els.input.value);
   runSearch(els.input.value);
 });
 
 document.querySelector("#popular-chips").addEventListener("click", (event) => {
   const chip = event.target.closest("[data-keyword]");
-  if (chip) runSearch(chip.dataset.keyword);
+  if (chip) {
+    recordTrackedTopicSearch(chip.dataset.keyword);
+    runSearch(chip.dataset.keyword);
+  }
 });
 
 els.clear.addEventListener("click", () => {
@@ -965,19 +1159,66 @@ els.clear.addEventListener("click", () => {
   state.sectors = [];
   state.databaseTypes = [];
   state.sources = [];
-  state.transferTypes = [];
   state.mergedPage = 1;
   els.input.value = "";
-  [els.countryMs, els.sectorMs, els.dbtypeMs, els.sourceMs, els.transferTypeMs].forEach((c) => c._render?.());
+  syncFacetControls();
   renderResults();
 });
 
-document.querySelector(".mobile-filter-button").addEventListener("click", () => {
-  els.filters.classList.add("open");
+els.activeFilters?.addEventListener("click", (event) => {
+  const chip = event.target.closest("[data-filter-type]");
+  if (!chip) return;
+  const { filterType, filterValue } = chip.dataset;
+  if (filterType === "query") {
+    state.query = "";
+    els.input.value = "";
+  } else if (Array.isArray(state[filterType])) {
+    state[filterType] = state[filterType].filter((value) => value !== filterValue);
+  }
+  state.mergedPage = 1;
+  syncFacetControls();
+  renderResults();
 });
 
-document.querySelector(".filter-close").addEventListener("click", () => {
+function openFilterSheet() {
+  syncFacetControls();
+  els.filters.classList.add("open");
+  els.filterBackdrop.hidden = false;
+  requestAnimationFrame(() => els.filterBackdrop.classList.add("visible"));
+}
+
+function closeFilterSheet() {
   els.filters.classList.remove("open");
+  els.filterBackdrop.classList.remove("visible");
+  setTimeout(() => {
+    if (!els.filters.classList.contains("open")) els.filterBackdrop.hidden = true;
+  }, 200);
+}
+
+document.querySelector(".mobile-filter-button").addEventListener("click", openFilterSheet);
+document.querySelector(".filter-close").addEventListener("click", closeFilterSheet);
+els.filterBackdrop.addEventListener("click", closeFilterSheet);
+
+els.resetFilters.addEventListener("click", () => {
+  FILTER_STATE_KEYS.forEach((key) => {
+    state[key] = [];
+  });
+  state.mergedPage = 1;
+  multiselectInstances.forEach((container) => container._render?.());
+  renderResults();
+});
+
+document.querySelector(".results-view-toggle")?.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-results-view]");
+  if (!button) return;
+  state.resultsView = button.dataset.resultsView;
+  document.querySelectorAll("[data-results-view]").forEach((candidate) => {
+    const active = candidate.dataset.resultsView === state.resultsView;
+    candidate.classList.toggle("active", active);
+    candidate.setAttribute("aria-pressed", String(active));
+  });
+  document.querySelector(".technology-list")?.classList.remove("view-list", "view-grid");
+  document.querySelector(".technology-list")?.classList.add(`view-${state.resultsView}`);
 });
 
 // ── App view switching (Search vs Sources) ───────────────────────────────────
@@ -1080,6 +1321,8 @@ window.addEventListener("popstate", (e) => {
 // git history — re-add along with the #jpo-lookup section once approved.
 
 // ── Boot ─────────────────────────────────────────────────────────────────────
+
+loadPopularSearches();
 
 renderSourcesTable().then(() => {
   renderResults();

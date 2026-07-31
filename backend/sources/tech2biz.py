@@ -11,3 +11,4 @@ class Tech2BizSource(StaticJSONSource):
     transfer_type = "Technology transfer / licensing"
     language = "th"
     org_default = "NSTDA"
+    sector_provenance = "legacy_keyword"

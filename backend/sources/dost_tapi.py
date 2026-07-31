@@ -10,3 +10,4 @@ class DOSTTAPISource(StaticJSONSource):
     ttl_seconds = 86400
     transfer_type = "Technology transfer / licensing"
     org_default = "DOST-TAPI"
+    sector_provenance = "legacy_keyword"

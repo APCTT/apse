@@ -1,14 +1,21 @@
-# APSE Technology Gateway
+# Asia-Pacific Tech Gateway
 
-A federated search tool for technology transfer databases across Asia and the Pacific. Built for APCTT (Asian and Pacific Centre for Transfer of Technology), a UN ESCAP body. Instead of visiting each country's technology database separately, you search once here and get results from all of them together.
+A search gateway for technology transfer databases across Asia and the Pacific. Built for APCTT (Asian and Pacific Centre for Transfer of Technology), a UN ESCAP body. Instead of visiting each country's technology database separately, you search once here and get results from all of them together.
 
-Plain HTML/CSS/JS frontend, no build step. FastAPI backend. Deployed on Render's free tier.
+Plain HTML/CSS/JS frontend, no build step. FastAPI backend. Deployed on Render.
 
 ## What's in here
 
 The homepage has two views you switch between with the nav: **Search** (the search bar, filters, and results grid) and **Technology sources** (a card for each database with its own description and a link to search just that one). An "About" section sits underneath both as a shared footer.
 
 Search results from multiple databases are merged into one page using round robin, so you get a mix from every source instead of one source's results dumped first. A stats card at the top shows total technologies, total sources, and total countries, with a row of clickable chips (one per source) that filter the results down to just that source when you click one.
+
+Technology sectors use an ISO ICS-based shared taxonomy. Each result preserves
+the provider's original category in `source_sector` and adds `sector_codes`,
+`sector_labels`, `classification_method`, and `classification_confidence`.
+The filter options and counts come from `GET /api/v1/facets`, not from a
+hard-coded frontend list. This is an ISO ICS-based vocabulary, not an ISO
+certification.
 
 ## Sources currently wired in
 
@@ -48,6 +55,8 @@ backend/
     data/*.json              the actual crawled records for those five
   cache/
     ttl_cache.py             caches search results so repeat queries don't re-hit every source
+  taxonomy/
+    iso_ics.py               source-category and keyword mappings to ISO ICS
 
 scripts/
   crawl_*.py                the one-off scripts that produced the data/*.json files
@@ -58,6 +67,20 @@ scripts/
 Crawler refreshes are manual and are not scheduled by Render or GitHub. See
 [`docs/crawling.md`](docs/crawling.md) for the current source inventory,
 crawler-only dependencies, validation command, and safe refresh procedure.
+
+### Privacy-preserving popular searches
+
+The homepage reorders six editorially approved topics using aggregate counts
+from the previous 30 days. Only `topic_id`, date, and count are stored in
+`backend/cache/search_analytics.db`; arbitrary query text, IP addresses, and
+browser identifiers are not retained. Searches outside the predefined
+allow-list are ignored.
+
+Set `SEARCH_ANALYTICS_DB_PATH` to move the SQLite file. Render's service
+filesystem is ephemeral, so production counts require that path to point to a
+persistent disk, or a future database-backed store. Without persistent
+storage, the feature still works but its counts reset when the service is
+replaced or redeployed.
 
 ## Running it locally
 
@@ -108,7 +131,15 @@ If it's a live API: create `backend/sources/<name>.py`, subclass `BaseSource`, i
 
 If it's a site you're going to crawl once and store locally: write a one-off crawl script in `scripts/`, save the output to `backend/sources/data/<name>.json`, then create a source class subclassing `StaticJSONSource` (see `csir_india.py` for the shortest example — it's about 8 lines).
 
-Either way, once it's in `registry.py`, the search API, caching, and frontend filters all pick it up automatically. If the source has sectors that aren't already in the `SECTOR_OPTIONS` list near the top of `app.js`, add them there too, or they won't show up as filter options.
+For a crawled source, retain the provider's original category in the JSON
+`sector` field and add its mapping in `backend/taxonomy/iso_ics.py`. The facet
+API will then expose the resulting ISO ICS sectors automatically.
+
+For a live API source, set `sector_filter_supported = True` only after its
+native category or IPC codes have a verified mapping to ISO ICS and the
+upstream API can return correctly paginated results for that filter. Until
+then, the source remains available for keyword searches but is omitted from
+sector-filtered searches so totals are not silently distorted.
 
 ## Issues we ran into while building this (so you don't have to rediscover them)
 

@@ -48,6 +48,12 @@
   color: #123f62;
 }
 
+.gateway-nav-logo {
+  width: 40px;
+  height: 40px;
+  flex-basis: 40px;
+}
+
 .gateway-nav-brand strong {
   font-size: 16px;
   font-weight: 700;
@@ -235,6 +241,11 @@
   box-shadow: 0 2px 5px rgba(0, 0, 0, 0.07);
 }
 
+.apse.has-active-search .global-stats-bar {
+  padding: 15px 20px;
+  border-top-width: 3px;
+}
+
 .gsb-stat {
   border-color: #d7e4eb;
 }
@@ -273,6 +284,13 @@
 .gsb-chip.active {
   border-color: #0b70b7;
   background: #0b70b7;
+}
+
+.active-filter-chip {
+  border-color: #bcd3e0;
+  border-radius: 2px;
+  color: #0b70b7;
+  background: #eaf4f8;
 }
 
 .search-layout {
@@ -386,6 +404,10 @@
   background: #eaf4f8;
 }
 
+.card-detail-disclosure summary {
+  color: #0b70b7;
+}
+
 .source-cards-grid > *,
 .source-card {
   border-radius: 0;
@@ -454,5 +476,48 @@
 
   .global-stats-bar {
     padding: 22px 18px;
+  }
+}
+
+/* Keep the APCTT palette while using the redesigned search components. */
+.apse .results-toolbar,
+.apse .technology-list .technology-card {
+  border-radius: 8px;
+}
+
+.apse .active-filter-chip {
+  border-radius: 14px;
+}
+
+.apse .filters {
+  width: 264px;
+  padding: 20px;
+  border-radius: 0;
+}
+
+.apse .search-layout {
+  grid-template-columns: 264px minmax(0, 1fr);
+  gap: 24px;
+}
+
+.apse .card-top-row .card-sector,
+.apse .card-source-pill {
+  border-radius: 4px;
+}
+
+.apse .pagination-page-btn,
+.apse .pagination-jump-input {
+  border-radius: 5px;
+}
+
+@media (max-width: 900px) {
+  .apse .search-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .apse .filters {
+    width: 100%;
+    padding: 8px 18px 0;
+    border-radius: 22px 22px 0 0;
   }
 }

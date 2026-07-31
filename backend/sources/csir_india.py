@@ -9,3 +9,4 @@ class CSIRIndiaSource(StaticJSONSource):
     url = "https://techindiacsir.anusandhan.net/online/Control.do?_tech="
     ttl_seconds = 86400
     transfer_type = "Technology transfer / licensing"
+    sector_provenance = "legacy_keyword"

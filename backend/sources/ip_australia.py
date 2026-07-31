@@ -6,6 +6,7 @@ import httpx
 from backend.sources.base import BaseSource
 from backend.models.technology import Technology
 from backend.config import settings
+from backend.taxonomy.iso_ics import TAXONOMY_SCHEME, TAXONOMY_VERSION, classify_sector
 
 logger = logging.getLogger(__name__)
 
@@ -102,13 +103,15 @@ class IPAustraliaSource(BaseSource):
         if len(filing_date) == 8:
             filing_date = f"{filing_date[:4]}-{filing_date[4:6]}-{filing_date[6:]}"
         app_num = hit.get("applicationNumber") or ""
+        summary = f"Australian patent application {app_num}. Filed: {filing_date}. Status: {hit.get('applicationStatus') or 'Unknown'}."
+        classification = classify_sector("Patents", title=title, summary=summary)
         return Technology(
             id=f"ipau_{app_num}",
             source_id=self.id,
             source_name=self.name,
             title=title,
-            summary=f"Australian patent application {app_num}. Filed: {filing_date}. Status: {hit.get('applicationStatus') or 'Unknown'}.",
-            sector="Patents",
+            summary=summary,
+            sector=classification.primary_label,
             country="Australia",
             language="en",
             org_name=org,
@@ -119,6 +122,13 @@ class IPAustraliaSource(BaseSource):
             sub_sector="",
             url=f"https://ipsearch.ipaustralia.gov.au/patents/{app_num}" if app_num else "",
             fetched_at=datetime.utcnow(),
+            source_sector="Patents",
+            sector_codes=list(classification.codes),
+            sector_labels=list(classification.labels),
+            taxonomy_scheme=TAXONOMY_SCHEME,
+            taxonomy_version=TAXONOMY_VERSION,
+            classification_method=classification.method,
+            classification_confidence=classification.confidence,
         )
 
     def is_healthy(self) -> bool:

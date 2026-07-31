@@ -7,6 +7,7 @@ from urllib.parse import unquote
 from backend.sources.base import BaseSource
 from backend.models.technology import Technology
 from backend.config import settings
+from backend.taxonomy.iso_ics import TAXONOMY_SCHEME, TAXONOMY_VERSION, classify_sector
 
 logger = logging.getLogger(__name__)
 
@@ -31,12 +32,20 @@ class KoreaNTBSource(BaseSource):
         keywords = [k.strip() for k in kw_raw.split(";") if k.strip()]
         if app_fld:
             keywords += [k.strip() for k in app_fld.split(",") if k.strip()]
+        title = f("techName") or "Untitled"
+        summary = f("summary")
+        classification = classify_sector(
+            sector,
+            title=title,
+            summary=summary,
+            keywords=keywords,
+        )
 
         return Technology(
             id=f"ntb_{tech_id}",
-            title=f("techName") or "Untitled",
-            summary=f("summary"),
-            sector=sector,
+            title=title,
+            summary=summary,
+            sector=classification.primary_label,
             language="Korean",
             keywords=keywords,
             country="Republic of Korea",
@@ -49,6 +58,13 @@ class KoreaNTBSource(BaseSource):
             dev_status=f("devStatusName"),
             reg_date=f("regDate"),
             sub_sector=f("tcateNamem"),
+            source_sector=sector,
+            sector_codes=list(classification.codes),
+            sector_labels=list(classification.labels),
+            taxonomy_scheme=TAXONOMY_SCHEME,
+            taxonomy_version=TAXONOMY_VERSION,
+            classification_method=classification.method,
+            classification_confidence=classification.confidence,
         )
 
     async def search(self, query: str, filters: dict) -> tuple[list[Technology], int]:
@@ -60,10 +76,6 @@ class KoreaNTBSource(BaseSource):
         }
         if query:
             params["techName"] = query
-        if filters.get("sector"):
-            # NTB's external API only accepts a single category — use the first selected
-            params["tcateNamep"] = filters["sector"].split(",")[0].strip()
-
         logger.info("NTB: search q=%r page=%d", query, page)
         try:
             # 23s gives the Korean govt API enough time from US servers (~12-18s latency)
