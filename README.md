@@ -103,7 +103,7 @@ Add a free Gemini API key to `.env`:
 
 ```
 GEMINI_API_KEY=your_google_ai_studio_key
-GEMINI_RELATED_TERMS_MODEL=gemini-2.5-flash-lite
+GEMINI_RELATED_TERMS_MODEL=gemini-3.5-flash-lite
 SEMANTIC_SEARCH_ENABLED=true
 SEMANTIC_SEARCH_MODEL=gemini-embedding-001
 SEMANTIC_SEARCH_DIMENSIONS=768

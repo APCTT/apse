@@ -15,7 +15,7 @@ class Settings(BaseSettings):
     # Optional semantic search. The application remains fully functional
     # without a Gemini key and falls back to the existing keyword search.
     GEMINI_API_KEY: str = ""
-    GEMINI_RELATED_TERMS_MODEL: str = "gemini-2.5-flash-lite"
+    GEMINI_RELATED_TERMS_MODEL: str = "gemini-3.5-flash-lite"
     SEMANTIC_SEARCH_ENABLED: bool = True
     SEMANTIC_SEARCH_MODEL: str = "gemini-embedding-001"
     SEMANTIC_SEARCH_DIMENSIONS: int = 768
