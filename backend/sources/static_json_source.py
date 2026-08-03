@@ -6,6 +6,11 @@ from pathlib import Path
 
 from backend.sources.base import BaseSource
 from backend.models.technology import Technology
+from backend.search.semantic import (
+    SemanticQueryContext,
+    searchable_text,
+    semantic_search,
+)
 from backend.taxonomy.iso_ics import (
     TAXONOMY_SCHEME,
     TAXONOMY_VERSION,
@@ -114,27 +119,44 @@ class StaticJSONSource(BaseSource):
         page_size = 20
 
         q = query.lower()
+        semantic_context = filters.get("_semantic_context")
+        if not isinstance(semantic_context, SemanticQueryContext):
+            semantic_context = SemanticQueryContext(query=q)
         sector_filters = [s.strip() for s in (filters.get("sector") or "").split(",") if s.strip()]
 
-        matched = []
+        matched: list[tuple[dict, float]] = []
+        semantic_evidence: list[tuple[dict, float]] = []
         for rec in self._records:
             classification = rec["_sector_classification"]
             if not matches_sector_filter(classification, sector_filters):
                 continue
             if q:
-                searchable = " ".join([
-                    rec.get("title", ""),
-                    rec.get("summary", ""),
-                    rec.get("institute", ""),
-                    " ".join(rec.get("keywords", [])),
-                ]).lower()
-                if q not in searchable:
+                is_match, score, semantic_score = semantic_search.score_record(
+                    rec,
+                    semantic_context,
+                    self.id,
+                )
+                if not is_match:
                     continue
-            matched.append(rec)
+                matched.append((rec, score))
+                if semantic_score:
+                    semantic_evidence.append((rec, semantic_score))
+            else:
+                matched.append((rec, 0.0))
+
+        if q and semantic_context.available:
+            matched.sort(
+                key=lambda item: (
+                    item[1],
+                    item[0].get("title", "").lower(),
+                ),
+                reverse=True,
+            )
+            semantic_search.learn_from_matches(q, semantic_evidence)
 
         total = len(matched)
         page_slice = matched[(page - 1) * page_size: page * page_size]
-        return [self._to_technology(r) for r in page_slice], total
+        return [self._to_technology(record) for record, _ in page_slice], total
 
     def sector_facets(self) -> dict[str, int]:
         self._load()
@@ -149,14 +171,16 @@ class StaticJSONSource(BaseSource):
         self._load()
         for rec in self._records:
             yield {
-                "searchable": " ".join([
-                    rec.get("title", ""),
-                    rec.get("summary", ""),
-                    rec.get("institute", ""),
-                    " ".join(rec.get("keywords", [])),
-                ]).lower(),
+                "id": str(rec.get("id", "")),
+                "record": rec,
+                "searchable": searchable_text(rec).lower(),
                 "classification": rec["_sector_classification"],
             }
+
+    def semantic_records(self) -> list[dict]:
+        """Return loaded public metadata for the offline index builder."""
+        self._load()
+        return self._records
 
     def is_healthy(self) -> bool:
         return self._data_path.exists()

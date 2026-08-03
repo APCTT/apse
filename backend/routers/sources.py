@@ -3,6 +3,7 @@ from typing import Optional
 from fastapi import APIRouter, Query
 from backend.sources.registry import SOURCES
 from backend.models.technology import Source
+from backend.search.semantic import semantic_search
 from backend.taxonomy.iso_ics import (
     ICS_LABELS,
     TAXONOMY_SCHEME,
@@ -35,6 +36,7 @@ def get_facets(
     """
     transfer_types = sorted({s.transfer_type for s in SOURCES if s.transfer_type})
     query = (q or "").strip().lower()
+    semantic_context = semantic_search.cached_query(query) if query else None
     selected_countries = _split_values(country)
     selected_sectors = list(_split_values(sector))
     selected_sources = _split_values(source)
@@ -61,8 +63,17 @@ def get_facets(
             source_matches = not selected_sources or catalogue.id in selected_sources
 
             for record in catalogue.facet_records():
-                if query and query not in record["searchable"]:
-                    continue
+                if query:
+                    if semantic_context and semantic_context.available:
+                        is_match, _, _ = semantic_search.score_record(
+                            record["record"],
+                            semantic_context,
+                            catalogue.id,
+                        )
+                        if not is_match:
+                            continue
+                    elif query not in record["searchable"]:
+                        continue
                 classification = record["classification"]
                 sector_matches = matches_sector_filter(classification, selected_sectors)
 

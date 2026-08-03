@@ -813,6 +813,9 @@ async function renderResults() {
 
   if (token !== renderResultsToken) return; // a newer call already started; discard this stale result
   state.mergedPage = merged.page;
+  // The search request may have created and cached a semantic query vector.
+  // Refresh once more so facet counts follow the same expanded result set.
+  refreshFacetCounts(token).catch(() => {});
 
   // Blank state — no search term and no filters applied. Show only the
   // participating source information (name, coverage, counts) rather than

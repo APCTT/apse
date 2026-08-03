@@ -12,6 +12,16 @@ class Settings(BaseSettings):
     JPO_API_USERNAME: str = ""
     JPO_API_PASSWORD: str = ""
     JPO_TOKEN_URL: str = "https://ip-data.jpo.go.jp/auth/token"
+    # Optional semantic search. The application remains fully functional
+    # without a Gemini key and falls back to the existing keyword search.
+    GEMINI_API_KEY: str = ""
+    GEMINI_RELATED_TERMS_MODEL: str = "gemini-2.5-flash-lite"
+    SEMANTIC_SEARCH_ENABLED: bool = True
+    SEMANTIC_SEARCH_MODEL: str = "gemini-embedding-001"
+    SEMANTIC_SEARCH_DIMENSIONS: int = 768
+    SEMANTIC_SEARCH_DB_PATH: str = "backend/cache/semantic_search.db"
+    SEMANTIC_SEARCH_MIN_SCORE: float = 0.55
+    SEMANTIC_SEARCH_DAILY_QUERY_LIMIT: int = 800
 
     model_config = {"env_file": ".env"}
 

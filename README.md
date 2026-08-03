@@ -82,6 +82,59 @@ persistent disk, or a future database-backed store. Without persistent
 storage, the feature still works but its counts reset when the service is
 replaced or redeployed.
 
+### Optional semantic search
+
+The locally indexed catalogues can use Gemini embeddings to return
+conceptually related records in addition to exact keyword matches. This is a
+hybrid search: exact title and metadata matches keep a ranking boost, while
+semantic similarity can add records that use different terminology.
+
+The feature is optional and fail-open. With no key, an exhausted free quota,
+or a temporary Gemini error, `/api/v1/search` continues using the original
+keyword behavior.
+
+Before a document-vector index exists, the same key powers a lightweight query
+expansion path. Gemini generates a short set of technical synonyms for a novel
+query, those terms are validated and stored locally, and an identical query
+reuses them without another API call. This makes the first deployment useful
+without consuming several days of free quota to embed the full catalogue.
+
+Add a free Gemini API key to `.env`:
+
+```
+GEMINI_API_KEY=your_google_ai_studio_key
+GEMINI_RELATED_TERMS_MODEL=gemini-2.5-flash-lite
+SEMANTIC_SEARCH_ENABLED=true
+SEMANTIC_SEARCH_MODEL=gemini-embedding-001
+SEMANTIC_SEARCH_DIMENSIONS=768
+SEMANTIC_SEARCH_DB_PATH=backend/cache/semantic_search.db
+SEMANTIC_SEARCH_DAILY_QUERY_LIMIT=800
+```
+
+Build the local document index once, and rerun the same command after a
+crawler refresh. Only new or changed records are sent:
+
+```
+python scripts/build_semantic_index.py
+```
+
+Use `--source csir_india` to update one source. Search-query vectors are cached
+for 30 days. The database stores only a SHA-256 hash for each normalized user
+query, not the raw query. Public catalogue keywords from strong semantic
+matches can accumulate as related terms for that same hashed query. Queries
+that resemble email addresses, URLs, or phone numbers are excluded from this
+learning step.
+
+Only a cache miss reserves a Gemini query call. The default hard limit is 800
+calls per Pacific-time day; once reached, remaining searches automatically use
+the keyword and accumulated-related-term fallback. The counter is updated
+atomically before an API request, so simultaneous searches cannot overshoot
+the configured limit within one backend instance.
+
+`backend/cache/semantic_search.db` is intentionally gitignored. On Render it
+must eventually live on a persistent disk, or be generated during the build,
+otherwise the index resets whenever the service filesystem is replaced.
+
 ## Running it locally
 
 You need Python 3.11 or newer.

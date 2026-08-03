@@ -9,10 +9,11 @@ from backend.sources.registry import SOURCES
 from backend.models.response import SearchResponse
 from backend.cache.ttl_cache import cache
 from backend.config import settings
+from backend.search.semantic import semantic_search
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
-SEARCH_CACHE_SCHEMA_VERSION = 3
+SEARCH_CACHE_SCHEMA_VERSION = 4
 
 
 def _cache_key(params: dict) -> str:
@@ -72,6 +73,11 @@ async def search(
     if transfer_type:
         transfer_types = {t.strip() for t in transfer_type.split(",") if t.strip()}
         active_sources = [s for s in active_sources if s.transfer_type in transfer_types]
+
+    # One semantic context is shared by every locally indexed source. If the
+    # free API is unavailable, prepare_query returns a keyword-only context.
+    if query:
+        filters["_semantic_context"] = await semantic_search.prepare_query(query)
 
     # NTB API (Korean govt) takes 12-18s from Render's US servers — needs extra budget
     SOURCE_TIMEOUTS = {"korea_ntb": 25.0}
