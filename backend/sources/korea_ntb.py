@@ -20,6 +20,10 @@ class KoreaNTBSource(BaseSource):
     status = "Metadata search"
     url = "https://www.ntb.kr"
     ttl_seconds = 86400
+    # NTB provides official technology categories. We normalize those
+    # categories to ISO ICS and filter a larger live result window locally.
+    # Facet counts remain unavailable because the full catalogue is not stored.
+    sector_filter_supported = True
 
     def _normalize(self, item: ET.Element) -> Technology:
         def f(tag: str) -> str:
@@ -69,22 +73,35 @@ class KoreaNTBSource(BaseSource):
 
     async def search(self, query: str, filters: dict) -> tuple[list[Technology], int]:
         page = int(filters.get("page", 1))
+        selected_sectors = [
+            value.strip()
+            for value in (filters.get("sector") or "").split(",")
+            if value.strip()
+        ]
+        # A sector-filtered request needs a wider upstream window because NTB
+        # does not accept ISO ICS codes. Fetch one 100-record window, normalize
+        # its native categories, then expose ordinary 20-record pages.
+        upstream_page = 1 if selected_sectors else page
+        rows = 100 if selected_sectors else 20
         params: dict = {
             "serviceKey": unquote(settings.KOREA_NTB_API_KEY),
-            "numOfRows": "20",
-            "pageNo": str(page),
+            "numOfRows": str(rows),
+            "pageNo": str(upstream_page),
         }
         if query:
             params["techName"] = query
-        logger.info("NTB: search q=%r page=%d", query, page)
+        logger.info("NTB: search page=%d query_present=%s", page, bool(query))
         try:
             # 23s gives the Korean govt API enough time from US servers (~12-18s latency)
             async with httpx.AsyncClient(timeout=23.0) as client:
                 r = await client.get(settings.KOREA_NTB_BASE_URL, params=params)
             logger.info("NTB: HTTP %s totalBytes=%d", r.status_code, len(r.content))
             r.raise_for_status()
-        except Exception as e:
-            logger.error("NTB: request failed — %s: %s", type(e).__name__, e)
+        except httpx.HTTPStatusError as e:
+            logger.error("NTB: HTTP request failed status=%s", e.response.status_code)
+            raise
+        except httpx.HTTPError as e:
+            logger.error("NTB: request failed (%s)", type(e).__name__)
             raise
 
         try:
@@ -101,8 +118,25 @@ class KoreaNTBSource(BaseSource):
 
         total_count = int(root.findtext(".//totalCount") or "0")
         items = [self._normalize(item) for item in root.findall(".//item")]
+        if selected_sectors:
+            items = [
+                item
+                for item in items
+                if self._matches_sector_codes(item.sector_codes, selected_sectors)
+            ]
+            total_count = len(items)
+            start = (page - 1) * 20
+            items = items[start:start + 20]
         logger.info("NTB: %d items (total=%d)", len(items), total_count)
         return items, total_count
+
+    @staticmethod
+    def _matches_sector_codes(record_codes: list[str], selected_codes: list[str]) -> bool:
+        return any(
+            record_code == selected or record_code.startswith(f"{selected}.")
+            for selected in selected_codes
+            for record_code in record_codes
+        )
 
     def is_healthy(self) -> bool:
         return True

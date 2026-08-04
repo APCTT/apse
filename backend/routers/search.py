@@ -90,10 +90,12 @@ async def search(
             )
             return src.id, items, total_count, None
         except asyncio.TimeoutError:
-            logger.warning("Source %s timed out after %.0fs for query=%r", src.id, timeout, query)
+            logger.warning("Source %s timed out after %.0fs", src.id, timeout)
             return src.id, [], 0, "timeout"
         except Exception as e:
-            logger.error("Source %s failed — %s: %s", src.id, type(e).__name__, e)
+            # Exception messages from HTTP clients can include full request
+            # URLs, including user queries or API keys carried as parameters.
+            logger.error("Source %s failed (%s)", src.id, type(e).__name__)
             return src.id, [], 0, type(e).__name__
 
     raw = await asyncio.gather(*[safe_search(s) for s in active_sources])

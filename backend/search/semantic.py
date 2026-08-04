@@ -112,11 +112,18 @@ class SemanticStore:
     keyed by a SHA-256 hash of the normalized query.
     """
 
-    def __init__(self, db_path: str | Path):
+    def __init__(
+        self,
+        db_path: str | Path,
+        query_retention_days: int = 30,
+    ):
         self.db_path = Path(db_path)
+        self.query_retention_days = max(1, query_retention_days)
+        self._last_purge_day: date | None = None
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
         self._lock = threading.RLock()
         self._initialize()
+        self.purge_expired_query_data(force=True)
 
     def _connect(self) -> sqlite3.Connection:
         connection = sqlite3.connect(str(self.db_path), timeout=10)
@@ -155,6 +162,10 @@ class SemanticStore:
                 );
                 CREATE INDEX IF NOT EXISTS idx_related_terms_query
                 ON related_terms(query_hash, relevance DESC);
+                CREATE INDEX IF NOT EXISTS idx_related_terms_last_seen
+                ON related_terms(last_seen_at);
+                CREATE INDEX IF NOT EXISTS idx_query_embeddings_expiry
+                ON query_embeddings(expires_at);
                 CREATE TABLE IF NOT EXISTS api_usage_daily (
                     provider TEXT NOT NULL,
                     usage_day TEXT NOT NULL,
@@ -163,6 +174,33 @@ class SemanticStore:
                 );
                 """
             )
+
+    def purge_expired_query_data(
+        self,
+        *,
+        now: datetime | None = None,
+        force: bool = False,
+    ) -> tuple[int, int]:
+        """Physically remove expired query-derived data at most once per day."""
+        current = now or datetime.now(timezone.utc)
+        current_day = current.date()
+        with self._lock:
+            if not force and self._last_purge_day == current_day:
+                return 0, 0
+            related_cutoff = (
+                current - timedelta(days=self.query_retention_days)
+            ).isoformat()
+            with self._connect() as connection:
+                expired_vectors = connection.execute(
+                    "DELETE FROM query_embeddings WHERE expires_at <= ?",
+                    (current.isoformat(),),
+                ).rowcount
+                expired_terms = connection.execute(
+                    "DELETE FROM related_terms WHERE last_seen_at < ?",
+                    (related_cutoff,),
+                ).rowcount
+            self._last_purge_day = current_day
+        return max(0, expired_vectors), max(0, expired_terms)
 
     def get_query_vector(
         self, query: str, model: str, dimensions: int
@@ -530,7 +568,10 @@ class SemanticSearchEngine:
         self.dimensions = settings.SEMANTIC_SEARCH_DIMENSIONS
         self.min_score = settings.SEMANTIC_SEARCH_MIN_SCORE
         self.daily_query_limit = settings.SEMANTIC_SEARCH_DAILY_QUERY_LIMIT
-        self.store = SemanticStore(settings.SEMANTIC_SEARCH_DB_PATH)
+        self.store = SemanticStore(
+            settings.SEMANTIC_SEARCH_DB_PATH,
+            settings.SEMANTIC_SEARCH_QUERY_RETENTION_DAYS,
+        )
         self.client = (
             GeminiEmbeddingClient(
                 settings.GEMINI_API_KEY,
@@ -551,6 +592,7 @@ class SemanticSearchEngine:
         self._document_cache: dict[str, dict[str, tuple[float, ...]]] = {}
 
     async def prepare_query(self, query: str) -> SemanticQueryContext:
+        self.store.purge_expired_query_data()
         normalized = normalize_query(query)
         if not normalized:
             return SemanticQueryContext(query="")

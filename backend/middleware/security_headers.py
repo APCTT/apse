@@ -9,4 +9,14 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["X-Frame-Options"] = "DENY"
         response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        response.headers["Permissions-Policy"] = (
+            "camera=(), microphone=(), geolocation=(), payment=()"
+        )
+        response.headers["Strict-Transport-Security"] = (
+            "max-age=31536000; includeSubDomains"
+        )
+        if response.headers.get("content-type", "").startswith("application/json"):
+            response.headers["Content-Security-Policy"] = (
+                "default-src 'none'; base-uri 'none'; frame-ancestors 'none'"
+            )
         return response

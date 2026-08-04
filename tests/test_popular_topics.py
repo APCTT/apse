@@ -40,6 +40,17 @@ class PopularTopicStoreTests(unittest.TestCase):
         self.assertEqual(ranked[0]["count"], 2)
         water = next(topic for topic in ranked if topic["id"] == "water-treatment")
         self.assertEqual(water["count"], 1)
+        with sqlite3.connect(self.db_path) as connection:
+            stored_days = {
+                row[0]
+                for row in connection.execute(
+                    "SELECT day FROM popular_topic_daily"
+                ).fetchall()
+            }
+        self.assertNotIn(
+            (self.today - timedelta(days=30)).isoformat(),
+            stored_days,
+        )
 
     def test_zero_count_topics_keep_the_editorial_default_order(self):
         ranked = self.store.ranked_topics(self.today)

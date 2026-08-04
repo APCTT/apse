@@ -61,8 +61,11 @@ class IPAustraliaSource(BaseSource):
 
         try:
             token = await self._get_token()
-        except Exception as e:
-            logger.error("IPAustralia: token fetch failed — %s", e)
+        except httpx.HTTPStatusError as e:
+            logger.error("IPAustralia: token fetch failed status=%s", e.response.status_code)
+            raise
+        except httpx.HTTPError as e:
+            logger.error("IPAustralia: token fetch failed (%s)", type(e).__name__)
             raise
 
         page = int(filters.get("page", 1))
@@ -82,10 +85,13 @@ class IPAustraliaSource(BaseSource):
                     json=payload,
                     headers={"Authorization": f"Bearer {token}"},
                 )
-            logger.info("IPAustralia: search '%s' → %s", query, r.status_code)
+            logger.info("IPAustralia: search status=%s", r.status_code)
             r.raise_for_status()
-        except Exception as e:
-            logger.error("IPAustralia: search failed — %s", e)
+        except httpx.HTTPStatusError as e:
+            logger.error("IPAustralia: search failed status=%s", e.response.status_code)
+            raise
+        except httpx.HTTPError as e:
+            logger.error("IPAustralia: search failed (%s)", type(e).__name__)
             raise
 
         data = r.json()

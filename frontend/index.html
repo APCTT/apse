@@ -4,8 +4,12 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; base-uri 'self'; object-src 'none'; form-action 'self'; img-src 'self' data: https:; font-src 'self' data: https://fonts.gstatic.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; script-src 'self' https://translate.google.com https://translate.googleapis.com https://www.gstatic.com https://ssl.gstatic.com; connect-src 'self' http://127.0.0.1:8000 https://apsei-api.onrender.com https://translate.googleapis.com; frame-src https://translate.google.com;"
+    />
+    <meta
       name="description"
-      content="Asia-Pacific Tech Gateway connects technology seekers with original technology offers from participating institutions across Asia and the Pacific."
+      content="Asia-Pacific Tech Gateway helps users discover technology information indexed from source databases across Asia and the Pacific."
     />
     <title>Asia-Pacific Tech Gateway</title>
     <link rel="icon" type="image/svg+xml" href="assets/tech-gateway-app-icon.svg?v=1" />
@@ -15,7 +19,7 @@
       href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@600;700;800&family=Roboto:wght@400;500;700&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="styles.css?v=12" />
+    <link rel="stylesheet" href="styles.css?v=17" />
     <link
       id="apctt-theme"
       rel="stylesheet"
@@ -27,17 +31,7 @@
       href="energy-concept.css?v=1"
       disabled
     />
-    <script>
-      const previewParams = new URLSearchParams(window.location.search);
-      const selectedTheme = previewParams.get("theme");
-      const selectedConcept = previewParams.get("concept");
-      const useClassicTheme = selectedTheme === "classic";
-      const useNetworkConcept = !useClassicTheme && selectedConcept !== "standard";
-      document.querySelector("#apctt-theme").disabled = useClassicTheme;
-      document.querySelector("#energy-concept").disabled = !useNetworkConcept;
-      document.documentElement.dataset.theme = useClassicTheme ? "classic" : "apctt";
-      document.documentElement.dataset.concept = useNetworkConcept ? "network" : "standard";
-    </script>
+    <script src="theme-init.js?v=2"></script>
   </head>
   <body class="prototype-preview">
     <!-- Embed this main element inside the existing Drupal page layout. -->
@@ -53,6 +47,7 @@
               height="42"
             />
             <strong>Asia-Pacific Tech Gateway</strong>
+            <span class="gateway-beta-badge" aria-label="Beta version">Beta</span>
           </a>
           <div class="gateway-nav-links">
             <a class="active" href="#search-results">
@@ -67,7 +62,7 @@
             </a>
             <a href="#about">
               <span class="nav-number">03</span>
-              <span class="nav-label-full">About the Gateway</span>
+              <span class="nav-label-full">About APTG</span>
               <span class="nav-label-short">About</span>
             </a>
             <div class="nav-translate" id="google_translate_element"></div>
@@ -82,7 +77,7 @@
           <div class="eyebrow"><span></span> Asia-Pacific Tech Gateway</div>
           <h1>Discover technology offers across <em>Asia and the Pacific</em></h1>
           <p>
-            Search across participating technology banks and access original source platforms.
+            Search across source technology databases and access original source platforms.
           </p>
 
           <form class="search-form" id="search-form" role="search">
@@ -150,7 +145,7 @@
             </svg>
             <div class="network-caption">
               <span>Regional discovery network</span>
-              <strong>One search. Multiple trusted sources.</strong>
+              <strong>One search. Multiple source platforms.</strong>
             </div>
           </div>
         </div>
@@ -173,7 +168,7 @@
                 <div>
                   <span class="section-kicker">Search results</span>
                   <h2 id="results-title">Technology search results</h2>
-                  <p id="results-summary">Explore technology offers from participating source platforms.</p>
+                  <p id="results-summary">Explore technology information indexed from source platforms.</p>
                 </div>
               </div>
 
@@ -185,11 +180,11 @@
                   </div>
                   <div class="gsb-stat">
                     <span class="gsb-stat-number" id="gsb-stat-sources">—</span>
-                    <span class="gsb-stat-label">Participating sources</span>
+                    <span class="gsb-stat-label">Source platforms</span>
                   </div>
                   <div class="gsb-stat">
                     <span class="gsb-stat-number" id="gsb-stat-countries">—</span>
-                    <span class="gsb-stat-label">Member states</span>
+                    <span class="gsb-stat-label">Countries represented</span>
                   </div>
                 </div>
                 <p class="gsb-hint">Select one source below for quick filtering, or use the Source platform filter to select multiple.</p>
@@ -202,7 +197,6 @@
                 </button>
                 <button type="button" class="view-toggle-button" data-results-view="grid" aria-pressed="false" title="Grid view">
                   <span aria-hidden="true">▦</span><span class="visually-hidden">Grid view</span>
-                </button>
               </div>
             </div>
           </div>
@@ -241,7 +235,7 @@
                 <svg viewBox="0 0 20 20" aria-hidden="true">
                   <circle cx="10" cy="10" r="8" /><path d="M10 9v5M10 6.2v.2" />
                 </svg>
-                <p>Sectors use ISO ICS. Counts reflect the current search across indexed catalogue records. Live API sources without a verified category mapping are omitted from sector-filtered results.</p>
+                <p>Sectors use ISO ICS. Counts reflect indexed catalogue records. A green dot means the source is connected but cannot be counted in advance.</p>
               </div>
             </aside>
             <button class="filter-backdrop" type="button" aria-label="Close filters" hidden></button>
@@ -266,9 +260,9 @@
         <div class="gateway-container">
           <div class="section-heading sources-heading">
             <div>
-              <span class="section-kicker">Partner network</span>
-              <h2>Technology sources across Asia-Pacific</h2>
-              <p>Discover participating catalogues and continue to the official source for authoritative information.</p>
+              <span class="section-kicker">Source coverage</span>
+              <h2>Technology sources across Asia and the Pacific</h2>
+              <p>Explore source platforms and continue to the original website for authoritative information.</p>
             </div>
             <div class="source-count" id="source-count-badge"><strong>—</strong><span>source platforms</span></div>
           </div>
@@ -279,7 +273,7 @@
               </span>
               <div>
                 <h3>A gateway, not another database</h3>
-                <p>Searchable metadata helps you find relevant offers. Full records, ownership information, and enquiries remain with each participating institution.</p>
+                <p>Searchable metadata helps you find relevant offers. Full records, ownership information and enquiries remain with each source institution.</p>
               </div>
             </div>
             <div class="sources-overview-stats">
@@ -291,7 +285,7 @@
           <div class="source-access-key" aria-label="Source access types">
             <span><i class="access-dot access-dot-searchable" aria-hidden="true"></i><strong>Searchable catalogue</strong> — records can be discovered within the Gateway</span>
             <span><i class="access-dot access-dot-external" aria-hidden="true"></i><strong>External search</strong> — searches continue on the provider’s website</span>
-            <a class="source-join-link" href="#about">Represent a technology database? Learn how <span aria-hidden="true">→</span></a>
+            <a class="source-join-link" href="#about">Know a technology database? Suggest a source <span aria-hidden="true">→</span></a>
           </div>
           <div id="source-cards-grid" class="source-cards-grid"></div>
         </div>
@@ -306,60 +300,99 @@
       <!-- About section is intentionally outside both .app-view containers —
            persistent footer content shown regardless of which view is active. -->
       <section class="about-section" id="about">
-        <div class="gateway-container about-grid">
-          <div>
-            <span class="section-kicker light">About the Gateway</span>
-            <h2>Connecting technology seekers with solutions across the region.</h2>
+        <div class="gateway-container about-layout">
+          <div class="about-intro">
+            <div>
+              <span class="section-kicker light">About APTG</span>
+              <h2>One starting point for discovering technology information across Asia and the Pacific.</h2>
+            </div>
+            <div class="about-overview">
+              <p>
+                Technology information across the region is distributed among many national,
+                institutional and specialized databases. The Asia-Pacific Tech Gateway (APTG)
+                indexes selected information available through public web pages and available
+                APIs, bringing it together in a common discovery interface.
+              </p>
+              <p>
+                Users can search across multiple source databases, refine results by country,
+                sector and source, and continue to the original website for complete and
+                up-to-date information.
+              </p>
+            </div>
           </div>
-          <div class="about-content">
-            <p>
-              Asia-Pacific Tech Gateway helps technology seekers discover offers maintained
-              by national and institutional partners and continue to the original source
-              platform for authoritative information.
-            </p>
-            <div class="about-partner-invite">
-              <h3>Connect your technology database</h3>
-              <p>Represent a national, institutional, or regional database in Asia and the Pacific? Contact APCTT to explore participation in the Gateway.</p>
+
+          <div class="about-pillars" aria-label="How APTG works">
+            <article>
+              <span class="about-step">01</span>
+              <h3>Discover</h3>
+              <p>Search information indexed from multiple source databases.</p>
+            </article>
+            <article>
+              <span class="about-step">02</span>
+              <h3>Compare</h3>
+              <p>Review consistent summaries and filters across different sources.</p>
+            </article>
+            <article>
+              <span class="about-step">03</span>
+              <h3>Connect</h3>
+              <p>Continue to the original source to verify details and make enquiries.</p>
+            </article>
+          </div>
+
+          <p class="about-disclaimer">
+            APTG is a discovery and referral service. Inclusion of a database or record
+            does not indicate a formal partnership, approval or endorsement by the source
+            institution. Original source platforms remain authoritative.
+          </p>
+
+          <div class="about-source-cta">
+            <div>
+              <h3>Suggest a technology source</h3>
+              <p>Organizations maintaining technology databases in Asia and the Pacific may contact APCTT to suggest a source for consideration.</p>
             </div>
-            <div class="about-actions">
-              <a class="about-action-primary" href="#search-results">Explore technologies <span>→</span></a>
-              <a
-                class="about-action-secondary"
-                href="https://apctt.org/form/contact-us"
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                Propose a technology source <span>↗</span>
-              </a>
-            </div>
+            <a href="https://apctt.org/form/contact-us" target="_blank" rel="noopener noreferrer">
+              Contact APCTT <span aria-hidden="true">↗</span>
+            </a>
           </div>
         </div>
       </section>
+
+      <footer class="gateway-legal-footer">
+        <div class="gateway-container gateway-legal-footer-inner">
+          <div>
+            <strong>Asia-Pacific Tech Gateway</strong>
+            <p>Technology discovery across indexed source platforms.</p>
+          </div>
+          <nav aria-label="Legal information">
+            <a href="terms-of-use.html">Terms of Use</a>
+            <a href="privacy-notice.html">Privacy Notice</a>
+            <a href="https://apctt.org/form/contact-us" target="_blank" rel="noopener noreferrer">Contact APCTT</a>
+          </nav>
+        </div>
+        <div class="gateway-container gateway-external-link-note">
+          Links to external technology databases are provided for informational purposes and do not imply endorsement of any listed technology, provider or claim.
+        </div>
+      </footer>
     </main>
 
     <!-- Source detail page overlay -->
-    <div id="source-page" class="source-page" aria-modal="true" role="dialog">
+    <div
+      id="source-page"
+      class="source-page"
+      aria-modal="true"
+      aria-hidden="true"
+      aria-labelledby="source-page-title"
+      role="dialog"
+    >
       <div class="source-page-inner">
         <div id="source-page-content"></div>
       </div>
     </div>
 
     <script src="merged-pagination.js?v=1" defer></script>
-    <script src="app.js?v=19" defer></script>
-    <script>
-      function googleTranslateElementInit() {
-        new google.translate.TranslateElement(
-          {
-            pageLanguage: "en",
-            includedLanguages:
-              "en,ko,ja,zh-CN,hi,th,vi,ms,id,bn,si,ne,ru,tl,km,my,lo,mn,ur,ta,fr",
-            layout: google.translate.TranslateElement.InlineLayout.SIMPLE,
-            autoDisplay: false,
-          },
-          "google_translate_element"
-        );
-      }
-    </script>
+    <script src="security-utils.js?v=1" defer></script>
+    <script src="app.js?v=23" defer></script>
+    <script src="translate-init.js?v=1" defer></script>
     <script src="https://translate.google.com/translate_a/element.js?cb=googleTranslateElementInit" defer></script>
   </body>
 </html>

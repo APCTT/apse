@@ -32,7 +32,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.add_middleware(RateLimitMiddleware, max_requests=240, window_seconds=60)
+app.add_middleware(RateLimitMiddleware, max_requests=120, window_seconds=60)
 app.add_middleware(SecurityHeadersMiddleware)
 
 app.include_router(search.router, prefix="/api/v1")

@@ -122,6 +122,10 @@ class PopularTopicStore:
         end_day = today or date.today()
         start_day = end_day - timedelta(days=self.window_days - 1)
         with self._lock, self._connect() as connection:
+            connection.execute(
+                "DELETE FROM popular_topic_daily WHERE day < ?",
+                (start_day.isoformat(),),
+            )
             rows = connection.execute(
                 """
                 SELECT topic_id, SUM(search_count)

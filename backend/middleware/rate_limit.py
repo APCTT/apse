@@ -1,6 +1,7 @@
+import ipaddress
 import threading
 import time
-from collections import defaultdict
+from collections import OrderedDict, deque
 
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse
@@ -15,18 +16,37 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
     exhausting the external Korea NTB / IP Australia rate limits.
     """
 
-    def __init__(self, app, max_requests: int = 60, window_seconds: int = 60):
+    def __init__(
+        self,
+        app,
+        max_requests: int = 60,
+        window_seconds: int = 60,
+        max_clients: int = 10_000,
+    ):
         super().__init__(app)
         self.max_requests = max_requests
         self.window_seconds = window_seconds
-        self._hits: dict[str, list[float]] = defaultdict(list)
+        self.max_clients = max(100, max_clients)
+        self._hits: OrderedDict[str, deque[float]] = OrderedDict()
         self._lock = threading.Lock()
 
     def _client_ip(self, request) -> str:
         forwarded = request.headers.get("x-forwarded-for")
         if forwarded:
-            return forwarded.split(",")[0].strip()
-        return request.client.host if request.client else "unknown"
+            # A client can prepend a forged value to X-Forwarded-For. Render's
+            # edge proxy appends the address it actually received, so prefer
+            # the right-most valid address instead of the attacker-controlled
+            # first entry.
+            candidate = forwarded.split(",")[-1].strip()
+            try:
+                return str(ipaddress.ip_address(candidate))
+            except ValueError:
+                pass
+        fallback = request.client.host if request.client else "unknown"
+        try:
+            return str(ipaddress.ip_address(fallback))
+        except ValueError:
+            return "unknown"
 
     async def dispatch(self, request, call_next):
         if request.url.path == "/health":
@@ -37,9 +57,17 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         cutoff = now - self.window_seconds
 
         with self._lock:
-            hits = self._hits[client_ip]
+            hits = self._hits.get(client_ip)
+            if hits is None:
+                if len(self._hits) >= self.max_clients:
+                    self._hits.popitem(last=False)
+                hits = deque()
+                self._hits[client_ip] = hits
+            else:
+                self._hits.move_to_end(client_ip)
+
             while hits and hits[0] < cutoff:
-                hits.pop(0)
+                hits.popleft()
 
             if len(hits) >= self.max_requests:
                 return JSONResponse(

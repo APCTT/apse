@@ -194,6 +194,11 @@ upstream API can return correctly paginated results for that filter. Until
 then, the source remains available for keyword searches but is omitted from
 sector-filtered searches so totals are not silently distorted.
 
+Korea NTB maps its official native technology categories to ISO ICS and
+applies sector selections to a wider live result window. Its filter shows a
+green availability dot rather than a number because the Gateway does not
+store the full NTB catalogue for advance counting.
+
 ## Issues we ran into while building this (so you don't have to rediscover them)
 
 **Running the frontend locally on the "wrong" port gives you CORS errors.** `backend/main.py` only allows a fixed list of origins to call the API: `https://apsei.onrender.com`, `https://apctt.org`, `https://www.apctt.org`, `http://localhost:5501`, and `http://127.0.0.1:5501`. If you serve the frontend locally on a different port — VS Code's Live Server defaults to 5500, `python -m http.server` picks whatever port you give it — calls to the deployed backend will fail with a CORS error in the console, and it'll look like the backend is broken when it's actually just not expecting requests from that origin. Either serve the frontend on port 5501 to match what's already allowed, or add your local port to the `allow_origins` list in `main.py` (don't forget to remove it again before deploying, or just leave it since it's only a localhost entry).

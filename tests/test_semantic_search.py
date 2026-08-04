@@ -2,7 +2,7 @@ import asyncio
 import sqlite3
 import tempfile
 import unittest
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
 from backend.search.semantic import (
@@ -74,6 +74,34 @@ class SemanticStoreTests(unittest.TestCase):
             ).fetchone()
         self.assertEqual(evidence, 2)
         self.assertEqual(relevance, 0.81)
+
+    def test_expired_query_data_is_physically_deleted(self):
+        old = datetime(2026, 6, 1, tzinfo=timezone.utc)
+        current = datetime(2026, 8, 4, tzinfo=timezone.utc)
+        with sqlite3.connect(self.db_path) as connection:
+            connection.execute(
+                """
+                INSERT INTO query_embeddings(
+                    query_hash, model, dimensions, vector, expires_at
+                ) VALUES (?, ?, ?, ?, ?)
+                """,
+                ("a" * 64, "test-model", 1, b"\x00\x00\x00\x00", old.isoformat()),
+            )
+            connection.execute(
+                """
+                INSERT INTO related_terms(
+                    query_hash, related_term, relevance,
+                    evidence_count, last_seen_at
+                ) VALUES (?, ?, ?, ?, ?)
+                """,
+                ("a" * 64, "old term", 0.5, 1, old.isoformat()),
+            )
+
+        deleted_vectors, deleted_terms = self.store.purge_expired_query_data(
+            now=current,
+            force=True,
+        )
+        self.assertEqual((deleted_vectors, deleted_terms), (1, 1))
 
     def test_cosine_similarity_uses_normalized_vectors(self):
         self.assertAlmostEqual(

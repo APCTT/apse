@@ -20,6 +20,7 @@ class Settings(BaseSettings):
     SEMANTIC_SEARCH_MODEL: str = "gemini-embedding-001"
     SEMANTIC_SEARCH_DIMENSIONS: int = 768
     SEMANTIC_SEARCH_DB_PATH: str = "backend/cache/semantic_search.db"
+    SEMANTIC_SEARCH_QUERY_RETENTION_DAYS: int = 30
     SEMANTIC_SEARCH_MIN_SCORE: float = 0.55
     SEMANTIC_SEARCH_DAILY_QUERY_LIMIT: int = 800
 

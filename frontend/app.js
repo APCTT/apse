@@ -2,6 +2,11 @@ const LOCAL_HOSTS = new Set(["localhost", "127.0.0.1"]);
 const API_BASE = LOCAL_HOSTS.has(window.location.hostname)
   ? "http://127.0.0.1:8000/api/v1"
   : "https://apsei-api.onrender.com/api/v1";
+const {
+  escapeHtml,
+  normalizeDisplayText,
+  safeExternalUrl: safeUrl,
+} = globalThis.AptgSecurity;
 
 // Runtime state — sources populated on init, technologies fetched on each search
 let sourcesCache = [];
@@ -86,7 +91,9 @@ function initMultiselect(containerEl, options, getSelected, onChange, { defaultO
               <input type="checkbox" value="${escapeHtml(o.value)}" ${selected.includes(o.value) ? "checked" : ""}>
               <span>${escapeHtml(o.label)}</span>
             </span>
-            ${Number.isFinite(o.count) ? `<small>${o.count.toLocaleString()}</small>` : ""}
+            ${Number.isFinite(o.count)
+              ? `<small>${o.count.toLocaleString()}</small>`
+              : `<small class="facet-availability" aria-label="Available. This source is connected, but its results cannot be counted in advance." title="Source available — count not available in advance."><span aria-hidden="true"></span></small>`}
           </label>`).join("")}
       </div>`;
 
@@ -137,28 +144,6 @@ const sourceInitials = (name) =>
 // Technology fields come from crawled external sources, not from us — never
 // trust them into innerHTML unescaped (a scraped title/summary containing
 // "<img onerror=...>" would otherwise execute in every visitor's browser).
-const ESCAPE_MAP = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" };
-const MOJIBAKE_REPLACEMENTS = [
-  ["â€“", "–"],
-  ["â€”", "—"],
-  ["â€™", "’"],
-  ["â€˜", "‘"],
-  ["â€œ", "“"],
-  ["â€", "”"],
-  ["â€¦", "…"],
-  ["Â°C", "°C"],
-  ["Â ", " "],
-];
-const normalizeDisplayText = (value) => MOJIBAKE_REPLACEMENTS.reduce(
-  (text, [broken, corrected]) => text.replaceAll(broken, corrected),
-  String(value ?? "")
-);
-const escapeHtml = (s) => normalizeDisplayText(s).replace(/[&<>"']/g, (c) => ESCAPE_MAP[c]);
-
-// Only allow http(s) links out to external sources — blocks a crawled
-// record's url field from carrying a "javascript:" or "data:" payload.
-const safeUrl = (url) => /^https?:\/\//i.test(url || "") ? url : "";
-
 function technologyCard(technology, source) {
   const keywords = technology.keywords.slice(0, 3);
   const sectorCodes = technology.sector_codes || [];
@@ -222,7 +207,7 @@ function technologyCard(technology, source) {
             <div class="card-detail-panel">${detailRows}</div>
           </details>` : "<span></span>"}
         <div class="card-actions">
-          ${url ? `<a class="button button-primary card-external-link" href="${url}" target="_blank" rel="noopener noreferrer">${technology.source_id === "ip_australia" ? "View patent source ↗" : "View original source ↗"}</a>` : ""}
+          ${url ? `<a class="button button-primary card-external-link" href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">${technology.source_id === "ip_australia" ? "View patent source ↗" : "View original source ↗"}</a>` : ""}
         </div>
       </div>
     </article>
@@ -304,47 +289,51 @@ function buildRedirectUrl(source, query) {
 
 function redirectSourceBlock(source) {
   const info = REDIRECT_SOURCE_INFO[source.id];
+  const sourceId = escapeHtml(source.id);
+  const sourceName = escapeHtml(source.name);
+  const sourceCountry = escapeHtml(source.country);
+  const redirectUrl = safeUrl(buildRedirectUrl(source, state.query));
   const content = `<div class="technology-list redirect-technology-list view-grid">
         ${info ? info.cards.map((card) => `
           <article class="technology-card external-card">
             <div class="card-top-row">
               <div class="card-context">
-                <span class="card-sector">${card.sector}</span>
-                <span class="card-country">${card.country}</span>
+                <span class="card-sector">${escapeHtml(card.sector)}</span>
+                <span class="card-country">${escapeHtml(card.country)}</span>
               </div>
-              <span class="card-source-pill">${source.name}</span>
+              <span class="card-source-pill">${sourceName}</span>
             </div>
-            <h4 class="card-title">${card.title}</h4>
-            <p class="card-summary">${card.description}</p>
+            <h4 class="card-title">${escapeHtml(card.title)}</h4>
+            <p class="card-summary">${escapeHtml(card.description)}</p>
             <div class="card-footer">
-              <span class="redirect-card-organisation">${card.org}</span>
+              <span class="redirect-card-organisation">${escapeHtml(card.org)}</span>
               <div class="card-actions">
-                <a class="button button-primary card-external-link"
-                   href="${buildRedirectUrl(source, state.query)}"
+                ${redirectUrl ? `<a class="button button-primary card-external-link"
+                   href="${escapeHtml(redirectUrl)}"
                    target="_blank" rel="noopener noreferrer">
-                  Search on ${source.name}&nbsp; →
-                </a>
+                  Search on ${sourceName}&nbsp; →
+                </a>` : ""}
               </div>
             </div>
           </article>`).join("") : ""}
       </div>`;
 
   return `
-    <section class="redirect-source-section" data-source-id="${source.id}">
+    <section class="redirect-source-section" data-source-id="${sourceId}">
       <header class="redirect-source-heading">
         <div>
           <span class="section-kicker">External patent search</span>
           <div class="redirect-source-title">
-            <span class="source-initial" aria-hidden="true">${sourceInitials(source.name)}</span>
+            <span class="source-initial" aria-hidden="true">${escapeHtml(sourceInitials(source.name))}</span>
             <div>
-              <h3>${source.name}</h3>
-              <p>${source.country}</p>
+              <h3>${sourceName}</h3>
+              <p>${sourceCountry}</p>
             </div>
           </div>
         </div>
         <div class="group-meta">
-          <span class="result-count">${info ? info.size : "External source"}</span>
-          <span class="status ${statusClass(source.status)}">${source.status}</span>
+          <span class="result-count">${escapeHtml(info ? info.size : "External source")}</span>
+          <span class="status ${statusClass(source.status)}">${escapeHtml(source.status)}</span>
         </div>
       </header>
       ${content}
@@ -356,7 +345,8 @@ function renderPaginationBar(current, total) {
   const btns = [];
   const add = (p, label, active, disabled) =>
     `<button class="pagination-page-btn${active ? " active" : ""}"
-      ${disabled ? "disabled" : `onclick="changeMergedPage(${p})"`}>${label}</button>`;
+      ${active ? 'aria-current="page"' : ""}
+      ${disabled ? "disabled" : `data-merged-page="${p}"`}>${label}</button>`;
 
   btns.push(add(current - 1, "←", false, current === 1));
   btns.push(add(1, "1", current === 1, false));
@@ -375,8 +365,7 @@ function renderPaginationBar(current, total) {
       ${btns.join("")}
       <span class="pagination-jump">
         <input class="pagination-jump-input" type="number" min="1" max="${total}"
-          placeholder="${current}" aria-label="Go to page"
-          onkeydown="if(event.key==='Enter'){const v=parseInt(this.value);if(v>=1&&v<=${total})changeMergedPage(v);}">
+          placeholder="${current}" aria-label="Go to page" data-page-total="${total}">
         <span class="pagination-jump-label">of ${total.toLocaleString()}</span>
       </span>
     </div>`;
@@ -495,7 +484,7 @@ function renderMergedGrid(items) {
       return `<div class="empty-state"><h3>Enter a keyword to search IP Australia</h3><p>IP Australia's search API requires a keyword — it can't list all patents at once. Type a term above to search it.</p></div>`;
     }
     const heading = state.query
-      ? `No technologies available for "${state.query}"`
+      ? `No technologies available for "${escapeHtml(state.query)}"`
       : "No matching technologies found";
     return `<div class="empty-state"><h3>${heading}</h3><p>Try a broader keyword or clear one of the filters.</p></div>`;
   }
@@ -682,8 +671,8 @@ function renderSourceChips() {
   container.innerHTML = sourcesCache.map((s) => {
     const flag = (SOURCE_DETAIL[s.id] || {}).flag || "";
     const active = state.sources.includes(s.id);
-    return `<button type="button" class="gsb-chip${active ? " active" : ""}" data-source="${s.id}" aria-pressed="${active}">
-      <span aria-hidden="true">${flag}</span> ${s.name}
+    return `<button type="button" class="gsb-chip${active ? " active" : ""}" data-source="${escapeHtml(s.id)}" aria-pressed="${active}">
+      <span aria-hidden="true">${flag}</span> ${escapeHtml(s.name)}
     </button>`;
   }).join("");
   container.querySelectorAll(".gsb-chip").forEach((btn) => {
@@ -818,18 +807,17 @@ async function renderResults() {
   refreshFacetCounts(token).catch(() => {});
 
   // Blank state — no search term and no filters applied. Show only the
-  // participating source information (name, coverage, counts) rather than
+  // indexed source information (name, coverage, counts) rather than
   // flooding the page with an unrequested pile of technology cards.
   const isBlankState = !hasActiveSearch();
 
   if (isBlankState) {
     els.results.innerHTML = `
-      <div class="empty-state browse-prompt">
-        <span class="browse-prompt-kicker">Start exploring</span>
-        <h3>Find technology offers across the <span class="nowrap">Asia-Pacific</span> region</h3>
-        <p>Search by keyword above, choose a popular topic, or browse <a class="nowrap" href="#sources">participating sources</a>.</p>
+      <div class="empty-state browse-prompt browse-prompt-compact">
+        <span class="browse-prompt-kicker">Ready to explore</span>
+        <p>Enter a keyword above, choose a suggested search, or browse the <a href="#sources">source platforms</a>.</p>
       </div>`;
-    els.summary.textContent = "Explore technology offers from participating source platforms.";
+    els.summary.textContent = "Explore technology information indexed from source platforms.";
   } else {
     const redirectHtml = redirectSources.map(redirectSourceBlock).join("");
     const gridHtml = renderMergedGrid(merged.items);
@@ -862,7 +850,7 @@ async function renderResults() {
     els.title.textContent = state.query
       ? `${merged.totalAcrossSources.toLocaleString()} results for "${state.query}"`
       : `${merged.totalAcrossSources.toLocaleString()} matching records`;
-    els.summary.textContent = `${totalVisibleSources.toLocaleString()} participating source${totalVisibleSources === 1 ? "" : "s"} · ${totalCountries.toLocaleString()} member state${totalCountries === 1 ? "" : "s"}`;
+    els.summary.textContent = `${totalVisibleSources.toLocaleString()} indexed source${totalVisibleSources === 1 ? "" : "s"} · ${totalCountries.toLocaleString()} countr${totalCountries === 1 ? "y" : "ies"}`;
   }
 
   // Fetch Korea NTB's live total in the background purely for the tech-count
@@ -903,7 +891,7 @@ const SOURCE_DETAIL = {
     sizeValue: 128000,
     sizeLabel: "technologies",
     description: "Korea's national repository for technology transfer offers from universities, research institutes, and public R&D institutions. Technologies span manufacturing, ICT, biotech, energy, and more.",
-    coverage: "Republic of Korea — domestic technologies available for licensing, joint development, or transfer to domestic and international partners.",
+    coverage: "Republic of Korea — domestic technologies available for licensing, joint development, or transfer to domestic and international organizations.",
     searchHint: "Search in English — queries are automatically translated to Korean.",
   },
   wipo_patentscope: {
@@ -929,7 +917,7 @@ const SOURCE_DETAIL = {
     sizeValue: 1739,
     sizeLabel: "technologies",
     description: "India's Council of Scientific and Industrial Research (CSIR) technology transfer portal — spanning 30+ national laboratories across agriculture, food, health, energy, materials, ICT, and manufacturing.",
-    coverage: "India — technologies from CSIR institutes available for licensing, joint development, and commercialisation by domestic and international partners.",
+    coverage: "India — technologies from CSIR institutes available for licensing, joint development, and commercialisation by domestic and international organizations.",
     searchHint: "Search by technology name, application area, or CSIR institute. Each result links directly to the full technology profile.",
   },
   dost_tapi: {
@@ -970,48 +958,50 @@ const SOURCE_DETAIL = {
   },
 };
 
-function sourceDetailCard(source) {
+function sourceDetailCard(source, representedCount) {
   const detail = SOURCE_DETAIL[source.id] || {};
   const initials = sourceInitials(source.name);
   const isRedirect = source.status === "Search redirect";
   const accessLabel = isRedirect ? "External search" : "Searchable catalogue";
+  const sourceId = escapeHtml(source.id);
+  const sourceUrl = safeUrl(source.url);
   const capabilities = [
     !isRedirect ? "Keyword search" : "",
     source.sector_filter_supported ? "ISO sector filters" : "",
   ].filter(Boolean);
   return `
-    <article class="source-detail-card" id="source-${source.id}">
+    <article class="source-detail-card" id="source-${sourceId}">
       <div class="sdc-header">
         <div class="sdc-identity">
-          <span class="source-initial sdc-initial" aria-hidden="true">${initials}</span>
+          <span class="source-initial sdc-initial" aria-hidden="true">${escapeHtml(initials)}</span>
           <div>
-            <h3 class="sdc-name">${source.name}</h3>
-            <p class="sdc-institution">${source.institution}</p>
+            <h3 class="sdc-name">${escapeHtml(source.name)}</h3>
+            <p class="sdc-institution">${escapeHtml(source.institution)}</p>
           </div>
         </div>
       </div>
 
       <div class="sdc-access-row">
-        <span class="sdc-country">${detail.flag || ""} ${source.country}</span>
+        <span class="sdc-country">${detail.flag || ""} ${escapeHtml(source.country)}</span>
         <span class="sdc-access ${isRedirect ? "is-external" : "is-searchable"}"><i aria-hidden="true"></i>${accessLabel}</span>
       </div>
 
-      ${detail.size ? `<div class="sdc-catalogue-size">
-        <strong>${detail.size}</strong>
-        <span>${detail.sizeLabel} represented</span>
+      ${Number.isFinite(representedCount) ? `<div class="sdc-catalogue-size">
+        <strong>${representedCount.toLocaleString()}</strong>
+        <span>records currently represented</span>
       </div>` : ""}
 
-      <p class="sdc-description">${detail.description || ""}</p>
+      <p class="sdc-description">${escapeHtml(detail.description || "")}</p>
 
       ${capabilities.length ? `<div class="sdc-capabilities" aria-label="Available Gateway features">
         ${capabilities.map((capability) => `<span>${capability}</span>`).join("")}
       </div>` : ""}
 
       <div class="sdc-actions">
-        ${isRedirect
-          ? `<a class="button button-primary" href="${source.url}" target="_blank" rel="noopener noreferrer">Search official database ↗</a>`
-          : `<button class="button button-primary sdc-search-btn" onclick="selectOnlySource('${source.id}')">Search this source</button>`}
-        <button class="button button-secondary" onclick="openSourcePage('${source.id}')">Source details</button>
+        ${isRedirect && sourceUrl
+          ? `<a class="button button-primary" href="${escapeHtml(sourceUrl)}" target="_blank" rel="noopener noreferrer">Search original database ↗</a>`
+          : `<button class="button button-primary sdc-search-btn" data-source-search="${sourceId}">Search this source</button>`}
+        <button class="button button-secondary" data-source-details="${sourceId}">Source details</button>
       </div>
     </article>
   `;
@@ -1096,6 +1086,11 @@ async function renderSourcesTable() {
     // Rank by technology/patent count, largest first — search-redirect
     // sources (e.g. WIPO) have no comparable count and are excluded from
     // the ranking, kept at the end in their original order.
+    const representedCounts = new Map(
+      sourceOptions
+        .filter((item) => Number.isFinite(item.count))
+        .map((item) => [item.value, item.count])
+    );
     const rankedSources = [...sources].sort((a, b) => {
       const av = SOURCE_DETAIL[a.id]?.sizeValue;
       const bv = SOURCE_DETAIL[b.id]?.sizeValue;
@@ -1115,7 +1110,11 @@ async function renderSourcesTable() {
     if (countryCountEl) countryCountEl.textContent = countryCount;
     if (indexedCountEl) indexedCountEl.textContent = indexedCount;
     if (redirectCountEl) redirectCountEl.textContent = redirectCount;
-    if (grid) grid.innerHTML = rankedSources.map(sourceDetailCard).join("");
+    if (grid) {
+      grid.innerHTML = rankedSources
+        .map((source) => sourceDetailCard(source, representedCounts.get(source.id)))
+        .join("");
+    }
   } catch {
     if (grid) grid.innerHTML = `<p>Could not load sources.</p>`;
   }
@@ -1259,51 +1258,69 @@ document.querySelector('a[href="#sources"]').addEventListener("click", (e) => {
 
 const sourcePage = document.querySelector("#source-page");
 const sourcePageContent = document.querySelector("#source-page-content");
+let sourcePageReturnFocus = null;
 
-function openSourcePage(sourceId) {
+function setSourceDialogOpen(isOpen) {
+  sourcePage.classList.toggle("open", isOpen);
+  sourcePage.setAttribute("aria-hidden", String(!isOpen));
+  document.body.classList.toggle("source-dialog-open", isOpen);
+  const main = document.querySelector("main");
+  if (main) main.inert = isOpen;
+}
+
+function openSourcePage(sourceId, { pushHistory = true } = {}) {
   const source = sourcesCache.find((s) => s.id === sourceId);
   if (!source) return;
   const detail = SOURCE_DETAIL[sourceId] || {};
+  const safeSourceId = escapeHtml(source.id);
+  const safeSourceName = escapeHtml(source.name);
+  const safeSourceUrl = safeUrl(source.url);
+  const isRedirect = source.status === "Search redirect";
+  sourcePageReturnFocus = document.activeElement;
   sourcePageContent.innerHTML = `
     <div class="sp-back">
-      <button class="text-button" onclick="closeSourcePage()">← Back to Gateway</button>
+      <button class="text-button" type="button" data-source-close>← Back to Gateway</button>
     </div>
     <div class="sp-hero">
-      <span class="source-initial sp-initial" aria-hidden="true">${sourceInitials(source.name)}</span>
+      <span class="source-initial sp-initial" aria-hidden="true">${escapeHtml(sourceInitials(source.name))}</span>
       <div>
-        <span class="status ${statusClass(source.status)}">${source.status}</span>
-        <h2 class="sp-name">${source.name}</h2>
-        <p class="sp-country">${detail.flag || ""} ${source.country} · ${source.institution}</p>
+        <span class="status ${statusClass(source.status)}">${escapeHtml(source.status)}</span>
+        <h2 class="sp-name" id="source-page-title">${safeSourceName}</h2>
+        <p class="sp-country">${detail.flag || ""} ${escapeHtml(source.country)} · ${escapeHtml(source.institution)}</p>
       </div>
     </div>
-    ${detail.size ? `<div class="sp-stat-row">
-      <div class="sp-stat"><span class="sdc-stat-number">${detail.size}</span><span class="sdc-stat-label">${detail.sizeLabel}</span></div>
-    </div>` : ""}
-    <p class="sp-desc">${detail.description || ""}</p>
+    <p class="sp-desc">${escapeHtml(detail.description || "")}</p>
     <div class="sp-section">
       <h3>Coverage</h3>
-      <p>${detail.coverage || source.country}</p>
+      <p>${escapeHtml(detail.coverage || source.country)}</p>
     </div>
     ${detail.searchHint ? `<div class="sp-section sp-hint-box">
       <h3>Search tip</h3>
-      <p>${detail.searchHint}</p>
+      <p>${escapeHtml(detail.searchHint)}</p>
     </div>` : ""}
     <div class="sp-actions">
-      <button class="button button-primary" onclick="closeSourcePage(); selectOnlySource('${source.id}');">
-        Search ${source.name}
-      </button>
-      <a class="button button-secondary" href="${source.url}" target="_blank" rel="noopener noreferrer">
+      ${isRedirect
+        ? ""
+        : `<button class="button button-primary" type="button" data-source-search-and-close="${safeSourceId}">
+          Search ${safeSourceName}
+        </button>`}
+      ${safeSourceUrl ? `<a class="button ${isRedirect ? "button-primary" : "button-secondary"}" href="${escapeHtml(safeSourceUrl)}" target="_blank" rel="noopener noreferrer">
         Visit official site ↗
-      </a>
+      </a>` : ""}
     </div>
   `;
-  sourcePage.classList.add("open");
-  history.pushState({ sourceId }, "", `#source/${sourceId}`);
+  setSourceDialogOpen(true);
+  sourcePage.querySelector("[data-source-close]")?.focus();
+  if (pushHistory) history.pushState({ sourceId }, "", `#source/${encodeURIComponent(sourceId)}`);
 }
 
-function closeSourcePage() {
-  sourcePage.classList.remove("open");
-  history.pushState({}, "", "#sources");
+function closeSourcePage({ pushHistory = true } = {}) {
+  setSourceDialogOpen(false);
+  if (pushHistory) history.replaceState({}, "", "#sources");
+  if (sourcePageReturnFocus instanceof HTMLElement && sourcePageReturnFocus.isConnected) {
+    sourcePageReturnFocus.focus();
+  }
+  sourcePageReturnFocus = null;
 }
 
 window.openSourcePage = openSourcePage;
@@ -1311,9 +1328,73 @@ window.closeSourcePage = closeSourcePage;
 
 window.addEventListener("popstate", (e) => {
   if (e.state?.sourceId) {
-    openSourcePage(e.state.sourceId);
+    openSourcePage(e.state.sourceId, { pushHistory: false });
   } else {
-    sourcePage.classList.remove("open");
+    closeSourcePage({ pushHistory: false });
+  }
+});
+
+document.addEventListener("click", (event) => {
+  const pageButton = event.target.closest("[data-merged-page]");
+  if (pageButton) {
+    changeMergedPage(Number(pageButton.dataset.mergedPage));
+    return;
+  }
+
+  const searchButton = event.target.closest("[data-source-search]");
+  if (searchButton) {
+    selectOnlySource(searchButton.dataset.sourceSearch);
+    return;
+  }
+
+  const detailsButton = event.target.closest("[data-source-details]");
+  if (detailsButton) {
+    openSourcePage(detailsButton.dataset.sourceDetails);
+    return;
+  }
+
+  if (event.target.closest("[data-source-close]")) {
+    closeSourcePage();
+    return;
+  }
+
+  const dialogSearchButton = event.target.closest("[data-source-search-and-close]");
+  if (dialogSearchButton) {
+    const sourceId = dialogSearchButton.dataset.sourceSearchAndClose;
+    closeSourcePage();
+    selectOnlySource(sourceId);
+  }
+});
+
+document.addEventListener("keydown", (event) => {
+  const jumpInput = event.target.closest(".pagination-jump-input");
+  if (jumpInput && event.key === "Enter") {
+    const page = Number(jumpInput.value);
+    const total = Number(jumpInput.dataset.pageTotal);
+    if (Number.isInteger(page) && page >= 1 && page <= total) changeMergedPage(page);
+    return;
+  }
+
+  if (!sourcePage.classList.contains("open")) return;
+  if (event.key === "Escape") {
+    event.preventDefault();
+    closeSourcePage();
+    return;
+  }
+  if (event.key !== "Tab") return;
+
+  const focusable = [...sourcePage.querySelectorAll(
+    'a[href], button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])'
+  )].filter((element) => !element.hidden);
+  if (!focusable.length) return;
+  const first = focusable[0];
+  const last = focusable[focusable.length - 1];
+  if (event.shiftKey && document.activeElement === first) {
+    event.preventDefault();
+    last.focus();
+  } else if (!event.shiftKey && document.activeElement === last) {
+    event.preventDefault();
+    first.focus();
   }
 });
 
@@ -1329,5 +1410,5 @@ renderSourcesTable().then(() => {
   renderResults();
   // Check if URL has a source hash on load
   const match = location.hash.match(/^#source\/(.+)$/);
-  if (match) openSourcePage(match[1]);
+  if (match) openSourcePage(decodeURIComponent(match[1]), { pushHistory: false });
 });
