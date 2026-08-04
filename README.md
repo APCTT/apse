@@ -56,7 +56,9 @@ backend/
   cache/
     ttl_cache.py             caches search results so repeat queries don't re-hit every source
   taxonomy/
-    iso_ics.py               source-category and keyword mappings to ISO ICS
+    iso_ics.py               shared source-category and keyword mappings to ISO ICS
+    ntb_sector_map.py        official NTB code mapping and reverse query mapping
+    data/ntb_to_ics.csv      reviewable NTB-to-ISO-ICS mapping table
 
 scripts/
   crawl_*.py                the one-off scripts that produced the data/*.json files
@@ -194,10 +196,12 @@ upstream API can return correctly paginated results for that filter. Until
 then, the source remains available for keyword searches but is omitted from
 sector-filtered searches so totals are not silently distorted.
 
-Korea NTB maps its official native technology categories to ISO ICS and
-applies sector selections to a wider live result window. Its filter shows a
-green availability dot rather than a number because the Gateway does not
-store the full NTB catalogue for advance counting.
+Korea NTB maps its official native technology-category codes to ISO ICS. For a
+sector selection, the backend converts the selected ISO ICS code back to the
+preferred NTB code and sends it as the API's native `tcateCode` filter. Its
+filter shows a green availability dot rather than a number because the Gateway
+does not store the full NTB catalogue for advance counting. The mapping source
+and review notes are in `backend/taxonomy/data/ntb_to_ics.csv`.
 
 ## Issues we ran into while building this (so you don't have to rediscover them)
 

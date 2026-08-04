@@ -13,7 +13,7 @@ from backend.search.semantic import semantic_search
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
-SEARCH_CACHE_SCHEMA_VERSION = 4
+SEARCH_CACHE_SCHEMA_VERSION = 5
 
 
 def _cache_key(params: dict) -> str:
