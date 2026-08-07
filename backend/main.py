@@ -25,6 +25,8 @@ app.add_middleware(
         "https://apsei.onrender.com",
         "https://apctt.org",
         "https://www.apctt.org",
+        "https://ap-tg.net",
+        "https://www.ap-tg.net",
         "http://localhost:5501",
         "http://127.0.0.1:5501",
     ],
