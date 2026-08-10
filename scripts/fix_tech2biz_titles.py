@@ -42,7 +42,20 @@ async def translate_th_en(client: httpx.AsyncClient, text: str) -> str:
         )
         data = r.json()
         translated = data.get("responseData", {}).get("translatedText", "")
-        if translated and translated.lower() != text.lower():
+        response_status = data.get("responseStatus")
+        error_text = f"{translated} {data.get('responseDetails', '')}".upper()
+        is_error = any(marker in error_text for marker in (
+            "MYMEMORY WARNING",
+            "YOU USED ALL AVAILABLE FREE TRANSLATIONS",
+            "NEXT AVAILABLE IN",
+            "QUERY LENGTH LIMIT EXCEEDED",
+        ))
+        if (
+            response_status in (None, 200, "200")
+            and translated
+            and not is_error
+            and translated.lower() != text.lower()
+        ):
             return translated
     except Exception:
         pass

@@ -15,30 +15,60 @@ TAXONOMY_SCHEME = "ISO ICS"
 TAXONOMY_VERSION = "7"
 
 
-ICS_LABELS = {
-    "07.080": "Biotechnology",
+ICS_TOP_LEVEL_LABELS = {
+    "01": "Generalities. Terminology. Standardization. Documentation",
+    "03": "Services. Company organization, management and quality. Administration. Transport. Sociology",
+    "07": "Natural and applied sciences",
     "11": "Health care technology",
-    "13": "Environment, health protection and safety",
+    "13": "Environment. Health protection. Safety",
+    "17": "Metrology and measurement. Physical phenomena",
+    "19": "Testing",
+    "21": "Mechanical systems and components for general use",
+    "23": "Fluid systems and components for general use",
     "25": "Manufacturing engineering",
     "27": "Energy and heat transfer engineering",
     "29": "Electrical engineering",
     "31": "Electronics",
+    "33": "Telecommunications. Audio and video engineering",
     "35": "Information technology",
-    "43": "Road vehicle engineering",
+    "37": "Image technology",
+    "39": "Precision mechanics. Jewellery",
+    "43": "Road vehicles engineering",
     "45": "Railway engineering",
     "47": "Shipbuilding and marine structures",
     "49": "Aircraft and space vehicle engineering",
+    "53": "Materials handling equipment",
+    "55": "Packaging and distribution of goods",
     "59": "Textile and leather technology",
+    "61": "Clothing industry",
     "65": "Agriculture",
     "67": "Food technology",
     "71": "Chemical technology",
+    "73": "Mining and minerals",
+    "75": "Petroleum and related technologies",
     "77": "Metallurgy",
+    "79": "Wood technology",
     "81": "Glass and ceramics industries",
     "83": "Rubber and plastic industries",
+    "85": "Paper technology",
+    "87": "Paint and colour industries",
     "91": "Construction materials and building",
     "93": "Civil engineering",
-    "95": "Military engineering",
+    "95": "Military affairs. Military engineering. Weapons",
+    "97": "Domestic and commercial equipment. Entertainment. Sports",
 }
+
+# Detailed codes remain available for record-level classification. Facets roll
+# them up to their two-digit parent so the public filter stays at the agreed
+# 40-field ISO ICS level.
+ICS_DETAIL_LABELS = {
+    "07.080": "Biotechnology",
+}
+
+ICS_LABELS = {**ICS_TOP_LEVEL_LABELS, **ICS_DETAIL_LABELS}
+
+OTHER_SECTOR_CODE = "other"
+OTHER_SECTOR_LABEL = "Other / Unclassified"
 
 
 SOURCE_SECTOR_MAP = {
@@ -98,6 +128,16 @@ SOURCE_SECTOR_MAP = {
     "환경": ("13",),
 }
 
+# APCTT's Drupal taxonomy uses the official top-level ISO ICS labels. Accept
+# both those labels and their codes as exact, high-confidence source mappings.
+SOURCE_SECTOR_MAP.update(
+    {
+        key: (code,)
+        for code, label in ICS_TOP_LEVEL_LABELS.items()
+        for key in (code.lower(), label.lower())
+    }
+)
+
 
 # Fallbacks are intentionally conservative.  They are used only when a source
 # gives a generic category such as "Technology" or "Materials".
@@ -137,7 +177,7 @@ class SectorClassification:
 
     @property
     def primary_label(self) -> str:
-        return self.labels[0] if self.labels else "Other / Unclassified"
+        return self.labels[0] if self.labels else OTHER_SECTOR_LABEL
 
 
 def classify_sector(
@@ -195,8 +235,22 @@ def _result(
 def matches_sector_filter(classification: SectorClassification, filters: list[str]) -> bool:
     if not filters:
         return True
+    if OTHER_SECTOR_CODE in filters and not classification.codes:
+        return True
     return any(
         record_code == selected or record_code.startswith(f"{selected}.")
         for selected in filters
         for record_code in classification.codes
     )
+
+
+def top_level_sector_codes(classification: SectorClassification) -> tuple[str, ...]:
+    """Return unique two-digit ISO ICS parents for facet aggregation."""
+
+    parents = (
+        code.split(".", 1)[0]
+        for code in classification.codes
+    )
+    return tuple(dict.fromkeys(
+        code for code in parents if code in ICS_TOP_LEVEL_LABELS
+    ))

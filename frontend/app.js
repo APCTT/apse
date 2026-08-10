@@ -565,7 +565,7 @@ function updateFacetOptions(facets) {
   }));
   sectorOptionsCache = sectorOptions;
   if (countryOptions.length) els.countryMs._setOptions?.(countryOptions);
-  if (sectorOptions.length) els.sectorMs._setOptions?.(sectorOptions);
+  els.sectorMs._setOptions?.(sectorOptions);
   if (sourceOptions.length) els.sourceMs._setOptions?.(sourceOptions);
 }
 

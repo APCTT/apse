@@ -44,9 +44,27 @@ Do not commit an unexpectedly small or empty output. The scripts perform full
 refreshes and currently have no minimum-record safeguard. Git remains the
 rollback mechanism for a bad crawl.
 
-Tech2Biz also calls the free MyMemory translation API for every record. A
-quota or translation failure can leave Thai text untranslated, so its diff
-requires additional review.
+Tech2Biz writes `backend/sources/data/tech2biz.staging.json` by default and
+preserves the original Thai title and description. MyMemory translation is
+optional (`--translate-mymemory`); quota and error messages are rejected and
+never stored as content. Direct replacement of the production JSON requires
+both an explicit output path and `--replace-production`. Review the staging
+file and its validation results before replacing the production index. Staging
+JSON files are ignored by Git so they cannot be committed accidentally.
+
+Translate and classify the validated Thai staging data with Gemini only after
+setting `GEMINI_API_KEY` in the ignored `.env` file or shell environment:
+
+```sh
+python scripts/enrich_tech2biz.py --limit 5 \
+  --output backend/sources/data/tech2biz.enriched.sample.staging.json
+python scripts/enrich_tech2biz.py
+```
+
+The enrichment script uses structured JSON output, processes five records per
+request, checkpoints every successful batch, and defaults to approximately 129
+requests for the full 645-record catalogue. It writes another staging file and
+does not replace the production index.
 
 ## Recommended schedule before automation
 

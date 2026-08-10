@@ -14,6 +14,7 @@ from urllib.parse import urlparse
 
 DATA_DIR = Path(__file__).parent.parent / "backend" / "sources" / "data"
 REQUIRED_FIELDS = ("id", "title", "url")
+NON_PRODUCTION_SUFFIXES = (".staging.json", ".checkpoint.json")
 
 
 def _valid_http_url(value: object) -> bool:
@@ -76,7 +77,11 @@ def validate_file(path: Path) -> tuple[list[str], list[str], int]:
 
 
 def main() -> int:
-    paths = sorted(DATA_DIR.glob("*.json"))
+    paths = sorted(
+        path
+        for path in DATA_DIR.glob("*.json")
+        if not path.name.endswith(NON_PRODUCTION_SUFFIXES)
+    )
     if not paths:
         print(f"No crawler outputs found in {DATA_DIR}")
         return 1

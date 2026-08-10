@@ -5,10 +5,13 @@ from backend.sources.registry import SOURCES
 from backend.models.technology import Source
 from backend.search.semantic import semantic_search
 from backend.taxonomy.iso_ics import (
-    ICS_LABELS,
+    ICS_TOP_LEVEL_LABELS,
+    OTHER_SECTOR_CODE,
+    OTHER_SECTOR_LABEL,
     TAXONOMY_SCHEME,
     TAXONOMY_VERSION,
     matches_sector_filter,
+    top_level_sector_codes,
 )
 
 router = APIRouter()
@@ -43,7 +46,8 @@ def get_facets(
     selected_database_types = _split_values(database_type)
     metadata_enabled = not selected_database_types or "Metadata search" in selected_database_types
 
-    sector_counts = {code: 0 for code in ICS_LABELS}
+    sector_counts = {code: 0 for code in ICS_TOP_LEVEL_LABELS}
+    sector_counts[OTHER_SECTOR_CODE] = 0
     country_counts: dict[str, int | None] = {}
     for catalogue in SOURCES:
         if catalogue.facet_count_supported:
@@ -82,14 +86,27 @@ def get_facets(
                 if country_matches and sector_matches:
                     source_counts[catalogue.id] = source_counts.get(catalogue.id, 0) + 1
                 if country_matches and source_matches:
-                    for code in classification.codes:
-                        if code in sector_counts:
+                    parent_codes = top_level_sector_codes(classification)
+                    if parent_codes:
+                        for code in parent_codes:
                             sector_counts[code] += 1
+                    else:
+                        sector_counts[OTHER_SECTOR_CODE] += 1
 
     sectors = [
-        {"value": code, "label": ICS_LABELS[code], "count": count}
-        for code, count in sorted(sector_counts.items(), key=lambda item: item[0])
+        {"value": code, "label": ICS_TOP_LEVEL_LABELS[code], "count": sector_counts[code]}
+        for code in ICS_TOP_LEVEL_LABELS
+        if sector_counts[code] > 0 or code in selected_sectors
     ]
+    if (
+        sector_counts[OTHER_SECTOR_CODE] > 0
+        or OTHER_SECTOR_CODE in selected_sectors
+    ):
+        sectors.append({
+            "value": OTHER_SECTOR_CODE,
+            "label": OTHER_SECTOR_LABEL,
+            "count": sector_counts[OTHER_SECTOR_CODE],
+        })
     countries = [
         {"value": value, "label": value, "count": count}
         for value, count in sorted(country_counts.items())

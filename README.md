@@ -13,9 +13,13 @@ Search results from multiple databases are merged into one page using round robi
 Technology sectors use an ISO ICS-based shared taxonomy. Each result preserves
 the provider's original category in `source_sector` and adds `sector_codes`,
 `sector_labels`, `classification_method`, and `classification_confidence`.
-The filter options and counts come from `GET /api/v1/facets`, not from a
-hard-coded frontend list. This is an ISO ICS-based vocabulary, not an ISO
-certification.
+The internal vocabulary supports all 40 ISO ICS top-level fields. Detailed
+codes are retained on records and cards, while filter counts roll up to their
+two-digit parent field (for example, `07.080` rolls up to `07`). The filter
+options and counts come from `GET /api/v1/facets`, not from a hard-coded
+frontend list: sectors with no matching records are hidden, and records that
+cannot yet be mapped appear under `Other / Unclassified`. This is an ISO
+ICS-based vocabulary, not an ISO certification.
 
 ## Sources currently wired in
 
@@ -188,7 +192,10 @@ If it's a site you're going to crawl once and store locally: write a one-off cra
 
 For a crawled source, retain the provider's original category in the JSON
 `sector` field and add its mapping in `backend/taxonomy/iso_ics.py`. The facet
-API will then expose the resulting ISO ICS sectors automatically.
+API will then expose the resulting ISO ICS top-level sector automatically.
+Official ISO top-level codes and labels map directly; source-specific labels
+still require an explicit, reviewable mapping. Do not force an uncertain match:
+unmapped records remain searchable under `Other / Unclassified`.
 
 For a live API source, set `sector_filter_supported = True` only after its
 native category or IPC codes have a verified mapping to ISO ICS and the

@@ -11,3 +11,5 @@ build/
 backend/cache/cache.db
 backend/cache/search_analytics.db
 backend/cache/semantic_search.db
+backend/sources/data/*.staging.json
+backend/sources/data/*.checkpoint.json

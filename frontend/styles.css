@@ -201,37 +201,74 @@
   display: none;
 }
 
-/* Google Translate widget in the nav — tame the default styling */
+/* Stable language control. Google's translated-page engine is visually
+   hidden so a third-party widget failure cannot remove the nav control. */
 .nav-translate {
+  position: relative;
   display: flex;
   align-items: center;
+  gap: 7px;
   padding-left: 16px;
 }
 
-.nav-translate .goog-te-gadget-simple {
+.nav-translate-icon {
+  width: 17px;
+  height: 17px;
+  flex: 0 0 17px;
+  fill: none;
+  stroke: #52687b;
+  stroke-width: 1.35;
+}
+
+.site-language-control {
+  position: relative;
   display: inline-flex;
   align-items: center;
+}
+
+.site-language-select {
+  width: 112px;
   height: 34px;
-  padding: 0 10px;
+  appearance: none;
+  padding: 0 28px 0 10px;
   border: 1px solid var(--line);
   border-radius: 3px;
+  outline: none;
+  color: #40576b;
   background: var(--white);
   font-family: var(--font-body);
   font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
 }
 
-.nav-translate .goog-te-gadget-simple:hover {
+.site-language-select:hover,
+.site-language-select:focus {
   border-color: var(--blue-600);
 }
 
-.nav-translate .goog-te-gadget-simple a,
-.nav-translate .goog-te-gadget-simple span {
-  color: #4c5e70;
-  text-decoration: none;
+.site-language-select:focus {
+  box-shadow: 0 0 0 2px rgba(0, 111, 178, 0.13);
 }
 
-.nav-translate .goog-te-gadget-icon {
-  display: none;
+.site-language-arrow {
+  position: absolute;
+  right: 10px;
+  width: 7px;
+  height: 7px;
+  border-right: 1.5px solid #64798b;
+  border-bottom: 1.5px solid #64798b;
+  pointer-events: none;
+  transform: translateY(-2px) rotate(45deg);
+}
+
+.translate-engine {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  overflow: hidden !important;
+  clip: rect(0, 0, 0, 0) !important;
+  white-space: nowrap !important;
 }
 
 /* Suppress Google's injected top banner frame and body offset */
@@ -2218,6 +2255,16 @@ body.source-dialog-open {
     left: 12px;
   }
 
+  .nav-translate {
+    flex: 0 0 128px;
+    justify-content: center;
+    padding: 0 8px;
+  }
+
+  .site-language-select {
+    width: 94px;
+  }
+
   .sources-overview {
     grid-template-columns: 1fr;
   }
@@ -3396,5 +3443,20 @@ body.source-dialog-open {
 
   .pagination-jump {
     display: none;
+  }
+
+  .nav-translate {
+    flex-basis: 106px;
+    padding: 0 5px;
+  }
+
+  .nav-translate-icon {
+    display: none;
+  }
+
+  .site-language-select {
+    width: 96px;
+    padding-left: 8px;
+    font-size: 11px;
   }
 }

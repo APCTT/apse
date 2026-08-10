@@ -277,7 +277,7 @@ html[data-concept="network"] .about-section {
 
 @media (max-width: 720px) {
   html[data-concept="network"] .nav-translate {
-    display: none;
+    display: flex;
   }
 
   html[data-concept="network"] .results-toolbar-main > *,

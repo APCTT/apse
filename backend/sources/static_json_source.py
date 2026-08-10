@@ -12,10 +12,15 @@ from backend.search.semantic import (
     semantic_search,
 )
 from backend.taxonomy.iso_ics import (
+    ICS_TOP_LEVEL_LABELS,
+    OTHER_SECTOR_CODE,
+    OTHER_SECTOR_LABEL,
+    SectorClassification,
     TAXONOMY_SCHEME,
     TAXONOMY_VERSION,
     classify_sector,
     matches_sector_filter,
+    top_level_sector_codes,
 )
 
 logger = logging.getLogger(__name__)
@@ -55,13 +60,40 @@ class StaticJSONSource(BaseSource):
                 self._records = json.load(f)
             for rec in self._records:
                 source_sector = rec.get("sector", "")
-                classification = classify_sector(
-                    source_sector,
-                    title=rec.get("title", ""),
-                    summary=rec.get("summary", ""),
-                    keywords=rec.get("keywords", []),
-                )
-                if self.sector_provenance == "legacy_keyword":
+                explicit_code = str(rec.get("sector_code", "")).strip()
+                if explicit_code in ICS_TOP_LEVEL_LABELS:
+                    confidence = str(
+                        rec.get("classification_confidence", "high")
+                    ).strip()
+                    if confidence not in {"high", "medium", "low"}:
+                        confidence = "low"
+                    classification = SectorClassification(
+                        source_sector=source_sector,
+                        codes=(explicit_code,),
+                        labels=(ICS_TOP_LEVEL_LABELS[explicit_code],),
+                        method=str(
+                            rec.get("classification_method", "indexed_sector_code")
+                        ),
+                        confidence=confidence,
+                    )
+                elif explicit_code == OTHER_SECTOR_CODE:
+                    classification = SectorClassification(
+                        source_sector=source_sector or OTHER_SECTOR_LABEL,
+                        codes=(),
+                        labels=(),
+                        method=str(
+                            rec.get("classification_method", "indexed_unclassified")
+                        ),
+                        confidence="low",
+                    )
+                else:
+                    classification = classify_sector(
+                        source_sector,
+                        title=rec.get("title", ""),
+                        summary=rec.get("summary", ""),
+                        keywords=rec.get("keywords", []),
+                    )
+                if self.sector_provenance == "legacy_keyword" and not explicit_code:
                     content_classification = classify_sector(
                         "",
                         title=rec.get("title", ""),
@@ -163,7 +195,8 @@ class StaticJSONSource(BaseSource):
         counts: dict[str, int] = {}
         for rec in self._records:
             classification = rec["_sector_classification"]
-            for code in classification.codes:
+            codes = top_level_sector_codes(classification) or (OTHER_SECTOR_CODE,)
+            for code in codes:
                 counts[code] = counts.get(code, 0) + 1
         return counts
 
