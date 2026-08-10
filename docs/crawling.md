@@ -8,16 +8,16 @@ avoids a paid background worker or database.
 ## Current configuration
 
 There is currently no GitHub Actions workflow, Render Cron Job, launchd job, or
-other scheduler in this repository. Every crawler is a manual, full refresh
-that writes directly to its source JSON file.
+other scheduler in this repository. Every crawler is a manual, full refresh;
+the safeguarded crawlers shown below write staging snapshots by default.
 
 | Source | Command | Output | Last repository update |
 |---|---|---|---|
-| CSIR India | `python scripts/crawl_csir.py` | `csir_india.json` | 2026-06-23 |
-| DOST-TAPI | `python scripts/crawl_dost_tapi.py` | `dost_tapi.json` | 2026-06-25 |
+| CSIR India | `python scripts/crawl_csir.py` | `csir_india.staging.json` | 2026-08-10 |
+| DOST-TAPI | `python scripts/crawl_dost_tapi.py` | `dost_tapi.staging.json` | 2026-08-10 |
 | Tech2Biz | `python scripts/crawl_tech2biz.py` | `tech2biz.json` | 2026-06-26 |
 | JST Japan | `python -m backend.sources.crawl_jst` | `jst_japan.json` | 2026-06-30 |
-| NRDC India | `python -m backend.sources.crawl_nrdc` | `nrdc_india.json` | 2026-07-06 |
+| NRDC India | `python -m backend.sources.crawl_nrdc` | `nrdc_india.staging.json` | 2026-08-10 |
 | ITI Sri Lanka | `python scripts/crawl_iti_sri_lanka.py --output backend/sources/data/iti_sri_lanka.json --replace-production` | `iti_sri_lanka.json` | 2026-08-10 |
 
 `scripts/crawl_slintec.py` is orphaned: the Slintec source and its output data
@@ -36,14 +36,20 @@ Run one crawler at a time, then validate and review its changes:
 
 ```sh
 python scripts/crawl_dost_tapi.py
+python scripts/crawl_dost_tapi.py \
+  --output backend/sources/data/dost_tapi.json \
+  --replace-production
 python scripts/validate_crawled_data.py
 git diff --stat -- backend/sources/data
-git diff -- backend/sources/data/dost_tapi.json
 ```
 
-Do not commit an unexpectedly small or empty output. The scripts perform full
-refreshes and currently have no minimum-record safeguard. Git remains the
-rollback mechanism for a bad crawl.
+CSIR, DOST-TAPI, and NRDC now default to staging output, retry failed detail
+requests three times, reject excessive failure rates and unexpected record
+count drops, and write snapshots atomically. Replacing a production JSON still
+requires both an explicit production `--output` path and
+`--replace-production`. Review the printed added/removed/changed counts before
+replacement. The two NRDC records whose current source links return HTTP 404
+are excluded from its searchable snapshot.
 
 The ITI crawler is the exception: it writes a staging file by default, verifies
 that ITI still labels the upstream page as `Available Technologies`, and blocks

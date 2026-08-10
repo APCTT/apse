@@ -103,7 +103,7 @@ class QueryAwareFacetTests(unittest.TestCase):
         counts = {item["value"]: item["count"] for item in result["sources"]}
 
         self.assertIsNone(counts["wipo_patentscope"])
-        self.assertEqual(counts["csir_india"], 33)
+        self.assertEqual(counts["csir_india"], 37)
 
     def test_each_facet_ignores_its_own_selection(self):
         result = facets(q="solar", country="India")

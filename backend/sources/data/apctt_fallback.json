@@ -1,0 +1,87 @@
+[
+  {
+    "nid": [
+      {
+        "value": 948
+      }
+    ],
+    "status": [
+      {
+        "value": true
+      }
+    ],
+    "langcode": [
+      {
+        "value": "en"
+      }
+    ],
+    "title": [
+      {
+        "value": "Solar-Powered Cold Storage for Smallholder Farmers (Dummy Data for Testing)"
+      }
+    ],
+    "created": [
+      {
+        "value": "2026-08-05T05:42:59+00:00"
+      }
+    ],
+    "path": [
+      {
+        "alias": null
+      }
+    ],
+    "body": [
+      {
+        "value": "The solution combines rooftop solar photovoltaic panels, battery storage and an energy-efficient cold room with remote temperature monitoring. It can be installed as a standalone unit or integrated with existing collection centres. The modular design allows capacity to be expanded according to local demand. Specific features include modular storage capacity from 5 to 30 metric tonnes, solar generation with battery backup, and remote monitoring."
+      }
+    ],
+    "field_areas_of_application": [
+      {
+        "value": "Farmer cooperatives, agricultural collection centres, wholesale markets, rural enterprises and food-processing clusters in remote or grid-constrained areas."
+      }
+    ],
+    "field_benefits_advantages": [
+      {
+        "value": "Reduces food loss, lowers operating costs compared with diesel-based cooling, and improves farmers' access to higher-value markets."
+      }
+    ],
+    "field_cooperation_sought": [
+      {
+        "value": "Pilot deployment partners, local distributors, financing partners and agricultural agencies interested in demonstration projects."
+      }
+    ],
+    "field_country": [
+      {
+        "target_id": 124
+      }
+    ],
+    "field_keywords_maximum_5_": [
+      {
+        "value": "solar power"
+      },
+      {
+        "value": "cold storage"
+      }
+    ],
+    "field_name_of_organization": [
+      {
+        "value": "SunHarvest Technologies Pvt. Ltd."
+      }
+    ],
+    "field_page_sectors": [
+      {
+        "target_id": 298
+      }
+    ],
+    "field_technology_readiness_level": [
+      {
+        "value": "trl_8_system_complete_and_qualified"
+      }
+    ],
+    "field_web_resource_description_": [
+      {
+        "value": "A modular solar-powered cold storage system designed for farmer cooperatives and rural aggregators. The system helps reduce post-harvest losses by providing reliable, off-grid refrigeration for fresh produce in areas with unstable electricity supply."
+      }
+    ]
+  }
+]

@@ -1,4 +1,7 @@
+import json
+import tempfile
 import unittest
+from pathlib import Path
 from unittest.mock import AsyncMock
 
 from backend.sources.apctt import APCTTSource
@@ -59,6 +62,13 @@ class APCTTTaxonomyTests(unittest.TestCase):
 
 
 class APCTTSourceTests(unittest.IsolatedAsyncioTestCase):
+    async def test_default_bundled_snapshot_is_valid(self):
+        source = APCTTSource()
+        records = source._load_fallback_records()
+
+        self.assertEqual(len(records), 1)
+        self.assertEqual(records[0]["id"], "apctt_948")
+
     async def test_repeated_drupal_page_is_deduplicated(self):
         source = APCTTSource()
         record = api_record()
@@ -116,6 +126,29 @@ class APCTTSourceTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(total, 1)
         self.assertEqual(items[0].id, "apctt_948")
+
+    async def test_bundled_snapshot_is_used_on_initial_upstream_failure(self):
+        with tempfile.TemporaryDirectory() as directory:
+            fallback = Path(directory) / "apctt.json"
+            fallback.write_text(json.dumps([api_record()]), encoding="utf-8")
+            source = APCTTSource(fallback_path=fallback)
+            source._request_page = AsyncMock(
+                side_effect=RuntimeError("render is blocked upstream")
+            )
+
+            items, total = await source.search("solar", {"page": 1})
+
+        self.assertEqual(total, 1)
+        self.assertEqual(items[0].id, "apctt_948")
+        self.assertGreater(source._cache_expires_at, 0)
+
+    async def test_initial_failure_is_not_hidden_without_a_valid_snapshot(self):
+        with tempfile.TemporaryDirectory() as directory:
+            source = APCTTSource(fallback_path=Path(directory) / "missing.json")
+            source._request_page = AsyncMock(side_effect=RuntimeError("outage"))
+
+            with self.assertRaisesRegex(RuntimeError, "outage"):
+                await source.search("", {"page": 1})
 
 
 if __name__ == "__main__":

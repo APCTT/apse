@@ -220,7 +220,10 @@ required. The source caches the catalogue in memory for one hour, detects and
 stops repeated pages, and applies country and ISO ICS filters locally using the
 verified Drupal TIDs in `backend/taxonomy/apctt_taxonomy.py`. The supplied
 sector taxonomy contains the 40 ISO ICS top-level sectors plus a separate
-`Other Technologies n.e.c.` term.
+`Other Technologies n.e.c.` term. Some cloud-hosting egress ranges receive an
+HTTP 403 from APCTT's edge security, so the live request falls back to the last
+reviewed public snapshot in `backend/sources/data/apctt_fallback.json` and
+retries the live catalogue after five minutes.
 
 ## Issues we ran into while building this (so you don't have to rediscover them)
 

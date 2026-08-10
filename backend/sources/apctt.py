@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import re
 import time
 from datetime import datetime, timezone
+from pathlib import Path
 
 import httpx
 
@@ -48,11 +50,14 @@ class APCTTSource(BaseSource):
     _API_URL = "https://www.apctt.org/api/technology-offers"
     _MAX_PAGES = 100
     _PAGE_SIZE = 20
+    _FALLBACK_RETRY_SECONDS = 300
+    _DEFAULT_FALLBACK_PATH = Path(__file__).parent / "data" / "apctt_fallback.json"
 
-    def __init__(self):
+    def __init__(self, fallback_path: Path | None = None):
         self._records: list[dict] = []
         self._cache_expires_at = 0.0
         self._lock: asyncio.Lock | None = None
+        self._fallback_path = fallback_path or self._DEFAULT_FALLBACK_PATH
 
     async def _request_page(self, page: int) -> list[dict]:
         async with httpx.AsyncClient(timeout=20.0, follow_redirects=True) as client:
@@ -106,11 +111,45 @@ class APCTTSource(BaseSource):
                     self._cache_expires_at = time.monotonic() + 60
                     logger.warning("APCTT: refresh failed; serving stale catalogue")
                     return
-                raise
+                fallback_records = self._load_fallback_records()
+                if not fallback_records:
+                    raise
+                self._records = fallback_records
+                self._cache_expires_at = (
+                    time.monotonic() + self._FALLBACK_RETRY_SECONDS
+                )
+                logger.warning(
+                    "APCTT: live refresh failed; serving %d bundled records",
+                    len(fallback_records),
+                )
+                return
 
             self._records = records
             self._cache_expires_at = time.monotonic() + self.ttl_seconds
             logger.info("APCTT: loaded %d unique technology offers", len(records))
+
+    def _load_fallback_records(self) -> list[dict]:
+        try:
+            raw_records = json.loads(
+                self._fallback_path.read_text(encoding="utf-8-sig")
+            )
+        except Exception as exc:
+            logger.error("APCTT: fallback snapshot unavailable (%s)", type(exc).__name__)
+            return []
+        if not isinstance(raw_records, list):
+            return []
+
+        records: list[dict] = []
+        seen_ids: set[str] = set()
+        for raw_record in raw_records:
+            if not isinstance(raw_record, dict):
+                continue
+            record = self._normalize_record(raw_record)
+            if not record or record["id"] in seen_ids:
+                continue
+            seen_ids.add(record["id"])
+            records.append(record)
+        return records
 
     async def prepare_facets(self) -> None:
         await self._load()

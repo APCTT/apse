@@ -131,7 +131,7 @@ class StaticJSONSource(BaseSource):
             source_name=self.name,
             url=rec["url"],
             fetched_at=datetime.utcnow(),
-            org_name=rec.get("institute", self.org_default),
+            org_name=rec.get("institute") or self.org_default,
             transfer_type=self.transfer_type,
             dev_status=rec.get("trl", ""),
             reg_date="",

@@ -15,6 +15,7 @@ from urllib.parse import urlparse
 DATA_DIR = Path(__file__).parent.parent / "backend" / "sources" / "data"
 REQUIRED_FIELDS = ("id", "title", "url")
 NON_PRODUCTION_SUFFIXES = (".staging.json", ".checkpoint.json")
+SPECIALIZED_DATA_FILES = {"apctt_fallback.json"}
 
 
 def _valid_http_url(value: object) -> bool:
@@ -81,6 +82,7 @@ def main() -> int:
         path
         for path in DATA_DIR.glob("*.json")
         if not path.name.endswith(NON_PRODUCTION_SUFFIXES)
+        and path.name not in SPECIALIZED_DATA_FILES
     )
     if not paths:
         print(f"No crawler outputs found in {DATA_DIR}")
