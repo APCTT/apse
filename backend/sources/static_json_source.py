@@ -208,6 +208,7 @@ class StaticJSONSource(BaseSource):
                 "record": rec,
                 "searchable": searchable_text(rec).lower(),
                 "classification": rec["_sector_classification"],
+                "country": self.country,
             }
 
     def semantic_records(self) -> list[dict]:

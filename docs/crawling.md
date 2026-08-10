@@ -1,7 +1,7 @@
 # Crawled source index operations
 
 The production API does not crawl source websites during a user request.
-Five source indexes are committed as JSON under `backend/sources/data/` and
+Six source indexes are committed as JSON under `backend/sources/data/` and
 loaded by `StaticJSONSource`. This keeps the Render web service small and
 avoids a paid background worker or database.
 
@@ -18,6 +18,7 @@ that writes directly to its source JSON file.
 | Tech2Biz | `python scripts/crawl_tech2biz.py` | `tech2biz.json` | 2026-06-26 |
 | JST Japan | `python -m backend.sources.crawl_jst` | `jst_japan.json` | 2026-06-30 |
 | NRDC India | `python -m backend.sources.crawl_nrdc` | `nrdc_india.json` | 2026-07-06 |
+| ITI Sri Lanka | `python scripts/crawl_iti_sri_lanka.py --output backend/sources/data/iti_sri_lanka.json --replace-production` | `iti_sri_lanka.json` | 2026-08-10 |
 
 `scripts/crawl_slintec.py` is orphaned: the Slintec source and its output data
 are not registered in the application.
@@ -43,6 +44,14 @@ git diff -- backend/sources/data/dost_tapi.json
 Do not commit an unexpectedly small or empty output. The scripts perform full
 refreshes and currently have no minimum-record safeguard. Git remains the
 rollback mechanism for a bad crawl.
+
+The ITI crawler is the exception: it writes a staging file by default, verifies
+that ITI still labels the upstream page as `Available Technologies`, and blocks
+outputs below 80 records. It does not crawl ITI's separate Commercialized
+Technologies page. Review `iti_sri_lanka.staging.json` before using the explicit
+production replacement command shown in the table. The current upstream page
+contains 103 PDF links; one legacy numeric-host link is unreachable and is
+excluded, leaving 102 searchable records.
 
 Tech2Biz writes `backend/sources/data/tech2biz.staging.json` by default and
 preserves the original Thai title and description. MyMemory translation is
@@ -70,7 +79,7 @@ does not replace the production index.
 
 Start with a reviewed manual refresh rather than an unattended schedule:
 
-- CSIR, DOST-TAPI, JST, and NRDC: monthly
+- CSIR, DOST-TAPI, JST, NRDC, and ITI: monthly
 - Tech2Biz: every two or three months because the translation step is slower
   and depends on a third-party free quota
 - Live API sources (Korea NTB and IP Australia): do not crawl; keep the

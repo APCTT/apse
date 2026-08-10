@@ -13,7 +13,9 @@ from backend.search.semantic import semantic_search
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
-SEARCH_CACHE_SCHEMA_VERSION = 6
+# Bump whenever the registered source set or response semantics change so
+# searches cached before a catalogue addition cannot hide the new records.
+SEARCH_CACHE_SCHEMA_VERSION = 8
 
 
 def _cache_key(params: dict) -> str:
@@ -64,7 +66,10 @@ async def search(
         active_sources = [s for s in active_sources if s.id not in excluded_ids]
     if country:
         countries = {c.strip() for c in country.split(",") if c.strip()}
-        active_sources = [s for s in active_sources if s.country in countries or s.country == "Global"]
+        active_sources = [
+            s for s in active_sources
+            if s.country in countries or s.country == "Global" or s.multi_country
+        ]
     if sector:
         # Live API catalogues are excluded until their native category or IPC
         # values have a verified mapping to ISO ICS. This keeps totals and
@@ -80,7 +85,7 @@ async def search(
         filters["_semantic_context"] = await semantic_search.prepare_query(query)
 
     # NTB API (Korean govt) takes 12-18s from Render's US servers — needs extra budget
-    SOURCE_TIMEOUTS = {"korea_ntb": 25.0}
+    SOURCE_TIMEOUTS = {"korea_ntb": 25.0, "apctt": 15.0}
 
     async def safe_search(src):
         timeout = SOURCE_TIMEOUTS.get(src.id, 10.0)

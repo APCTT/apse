@@ -33,8 +33,10 @@ ICS-based vocabulary, not an ISO certification.
 | Tech2Biz | Thailand | Crawled once, served from a local JSON file |
 | JST Japan Patent Portfolio | Japan | Crawled once, served from a local JSON file |
 | NRDC India | India | Crawled once, served from a local JSON file |
+| ITI Technology Bank | Sri Lanka | Public technology listings crawled into a local JSON index |
+| APCTT Technology Offers | Asia and the Pacific | Live public Drupal REST Export, cached in memory for one hour |
 
-The five crawled-and-cached sources (CSIR, DOST-TAPI, Tech2Biz, JST, NRDC) all share one class, `StaticJSONSource` in `backend/sources/static_json_source.py`. If you're adding a new source that's basically "crawl a site once, save it as JSON, search that JSON," subclass this instead of writing the load/search logic again — that's what it's there for.
+The six crawled-and-cached sources (CSIR, DOST-TAPI, Tech2Biz, JST, NRDC, ITI) all share one class, `StaticJSONSource` in `backend/sources/static_json_source.py`. If you're adding a new source that's basically "crawl a site once, save it as JSON, search that JSON," subclass this instead of writing the load/search logic again — that's what it's there for.
 
 ## How the pieces fit together
 
@@ -52,15 +54,17 @@ backend/
     sources.py              GET /api/v1/sources — lists the registered sources
   sources/
     base.py                 the interface every source class implements
-    static_json_source.py   shared base for the five crawled sources
+    static_json_source.py   shared base for the six crawled sources
     registry.py              the list of which sources are actually active
-    korea_ntb.py, wipo_patentscope.py, ip_australia.py   the three "live" sources
-    csir_india.py, dost_tapi.py, tech2biz.py, jst_japan.py, nrdc_india.py   the five crawled ones
-    data/*.json              the actual crawled records for those five
+    korea_ntb.py, wipo_patentscope.py, ip_australia.py, apctt.py   live sources
+    csir_india.py, dost_tapi.py, tech2biz.py, jst_japan.py, nrdc_india.py, iti_sri_lanka.py
+                              the six crawled sources
+    data/*.json              the local crawled-record indexes
   cache/
     ttl_cache.py             caches search results so repeat queries don't re-hit every source
   taxonomy/
     iso_ics.py               shared source-category and keyword mappings to ISO ICS
+    apctt_taxonomy.py         verified APCTT Drupal country/sector TID mappings
     ntb_sector_map.py        official NTB code mapping and reverse query mapping
     data/ntb_to_ics.csv      reviewable NTB-to-ISO-ICS mapping table
 
@@ -209,6 +213,14 @@ preferred NTB code and sends it as the API's native `tcateCode` filter. Its
 filter shows a green availability dot rather than a number because the Gateway
 does not store the full NTB catalogue for advance counting. The mapping source
 and review notes are in `backend/taxonomy/data/ntb_to_ics.csv`.
+
+APCTT uses the public Drupal REST Export at
+`https://www.apctt.org/api/technology-offers?_format=json`. No API key is
+required. The source caches the catalogue in memory for one hour, detects and
+stops repeated pages, and applies country and ISO ICS filters locally using the
+verified Drupal TIDs in `backend/taxonomy/apctt_taxonomy.py`. The supplied
+sector taxonomy contains the 40 ISO ICS top-level sectors plus a separate
+`Other Technologies n.e.c.` term.
 
 ## Issues we ran into while building this (so you don't have to rediscover them)
 

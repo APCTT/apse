@@ -1,3 +1,4 @@
+import asyncio
 import unittest
 from unittest.mock import patch
 
@@ -14,7 +15,7 @@ def facets(**overrides):
         "database_type": None,
     }
     params.update(overrides)
-    return get_facets(**params)
+    return asyncio.run(get_facets(**params))
 
 
 class QueryAwareFacetTests(unittest.TestCase):
@@ -26,6 +27,8 @@ class QueryAwareFacetTests(unittest.TestCase):
             status = "Metadata search"
             transfer_type = ""
             facet_count_supported = True
+            requires_facet_preparation = False
+            multi_country = False
 
             def facet_records(self):
                 return (
@@ -62,6 +65,8 @@ class QueryAwareFacetTests(unittest.TestCase):
             status = "Metadata search"
             transfer_type = ""
             facet_count_supported = True
+            requires_facet_preparation = False
+            multi_country = False
 
             def __init__(self, source_id, country, texts):
                 self.id = source_id
@@ -107,6 +112,42 @@ class QueryAwareFacetTests(unittest.TestCase):
 
         self.assertEqual(country_counts["Japan"], 2)
         self.assertEqual(source_counts["jst_japan"], 0)
+
+    def test_multi_country_source_counts_record_countries(self):
+        class FakeMultiCountryCatalogue:
+            id = "regional"
+            name = "Regional catalogue"
+            country = "Asia and the Pacific"
+            status = "Metadata search"
+            transfer_type = ""
+            facet_count_supported = True
+            requires_facet_preparation = False
+            multi_country = True
+
+            def facet_records(self):
+                return (
+                    {
+                        "record": {},
+                        "searchable": "solar cooling",
+                        "classification": classify_sector("Energy"),
+                        "countries": ("India",),
+                    },
+                    {
+                        "record": {},
+                        "searchable": "solar dryer",
+                        "classification": classify_sector("Energy"),
+                        "countries": ("Thailand",),
+                    },
+                )
+
+        with patch("backend.routers.sources.SOURCES", [FakeMultiCountryCatalogue()]):
+            result = facets(q="solar")
+            india = facets(q="solar", country="India")
+
+        country_counts = {item["value"]: item["count"] for item in result["countries"]}
+        source_counts = {item["value"]: item["count"] for item in india["sources"]}
+        self.assertEqual(country_counts, {"India": 1, "Thailand": 1})
+        self.assertEqual(source_counts["regional"], 1)
 
 
 if __name__ == "__main__":

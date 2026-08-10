@@ -20,6 +20,10 @@ class BaseSource(ABC):
     # True when this source has a local index that can be counted without
     # making an upstream API request.
     facet_count_supported: bool = False
+    # Multi-country catalogues apply country filters to individual records.
+    multi_country: bool = False
+    # Live catalogues may hydrate a short-lived index before facet counting.
+    requires_facet_preparation: bool = False
 
     @abstractmethod
     async def search(self, query: str, filters: dict) -> tuple[list[Technology], int]:
@@ -40,7 +44,11 @@ class BaseSource(ABC):
             ttl_seconds=self.ttl_seconds,
             transfer_type=self.transfer_type,
             sector_filter_supported=self.sector_filter_supported,
+            multi_country=self.multi_country,
         )
+
+    async def prepare_facets(self) -> None:
+        return None
 
     def sector_facets(self) -> dict[str, int]:
         return {}

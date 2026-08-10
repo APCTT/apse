@@ -139,6 +139,14 @@ const sourceInitials = (name) =>
     .map((word) => word[0])
     .join("");
 
+function flagForCountry(country, source) {
+  if (country === source.country) return (SOURCE_DETAIL[source.id] || {}).flag || "";
+  const matchingSource = sourcesCache.find((candidate) =>
+    candidate.country === country && (SOURCE_DETAIL[candidate.id] || {}).flag
+  );
+  return matchingSource ? SOURCE_DETAIL[matchingSource.id].flag : "";
+}
+
 // ── Render functions ──────────────────────────────────────────────────────────
 
 // Technology fields come from crawled external sources, not from us — never
@@ -175,7 +183,8 @@ function technologyCard(technology, source) {
     .join("");
 
   const needsTranslation = technology.language === "Korean";
-  const flag = (SOURCE_DETAIL[source.id] || {}).flag || "";
+  const cardCountry = technology.country || source.country;
+  const flag = flagForCountry(cardCountry, source);
   const url = safeUrl(technology.url);
   const quickMeta = [
     technology.dev_status,
@@ -186,7 +195,7 @@ function technologyCard(technology, source) {
       <div class="card-top-row">
         <div class="card-context">
           <span class="card-sector">${sectorDisplay}</span>
-          <span class="card-country">${flag} ${escapeHtml(source.country)}</span>
+          <span class="card-country">${flag} ${escapeHtml(cardCountry)}</span>
         </div>
         <span class="card-source-pill" title="${escapeHtml(source.name)}">${escapeHtml(source.name)}</span>
       </div>
@@ -708,7 +717,11 @@ function getFilterableSourceIds() {
     .map((s) => s.id);
 
   if (state.sources.length) ids = ids.filter((id) => state.sources.includes(id));
-  if (state.countries.length) ids = ids.filter((id) => state.countries.includes(sourceMap[id]?.country));
+  if (state.countries.length) {
+    ids = ids.filter((id) =>
+      sourceMap[id]?.multi_country || state.countries.includes(sourceMap[id]?.country)
+    );
+  }
   if (state.sectors.length) ids = ids.filter((id) => sourceMap[id]?.sector_filter_supported);
 
   return ids;
@@ -885,6 +898,13 @@ window.changeMergedPage = changeMergedPage;
 
 // Rich detail info per source — shown on the source cards page
 const SOURCE_DETAIL = {
+  apctt: {
+    flag: "🌏",
+    sizeLabel: "technology offers",
+    description: "Technology offers submitted directly to APCTT and published in its official catalogue. APCTT reviews submitted information and, where needed, directly coordinates follow-up between relevant technology providers and interested parties.",
+    coverage: "Asia and the Pacific — submissions from organizations offering technologies for transfer, cooperation, licensing, pilot deployment, or other forms of collaboration.",
+    searchHint: "Search by title, organization, keyword, application area, or technology description. Open the original APCTT record for complete information and follow-up details.",
+  },
   korea_ntb: {
     flag: "🇰🇷",
     size: "128,000+",
@@ -955,6 +975,13 @@ const SOURCE_DETAIL = {
     description: "National Research Development Corporation (NRDC) technology portfolio — established 1953 under India's Department of Scientific & Industrial Research (DSIR), with over 5,000 license agreements concluded to date across nearly every industry sector.",
     coverage: "India — technologies from national R&D institutes across 11 sectors including agro & food processing, engineering sciences, electrical & electronics, life sciences, chemical, civil engineering, coir, glass & ceramics, herbal/personal care, sericulture, and food & millet.",
     searchHint: "Search by technology name or application area. Each result links to the full NRDC technology profile with commercialisation contact details.",
+  },
+  iti_sri_lanka: {
+    flag: "🇱🇰",
+    sizeLabel: "technology listings",
+    description: "Public technology listings from Sri Lanka's Industrial Technology Institute (ITI). ITI links this catalogue as Available Technologies; current transfer availability should be confirmed directly with the institution.",
+    coverage: "Sri Lanka — public ITI listings covering food, herbal-product, and environmental technologies.",
+    searchHint: "Search by technology name or application area. Each result opens the original ITI technology document.",
   },
 };
 
@@ -1101,7 +1128,7 @@ async function renderSourcesTable() {
     });
 
     if (badge) badge.textContent = sources.length;
-    const countryCount = new Set(sources.map((source) => source.country)).size;
+    const countryCount = new Set(countryOptions.map((country) => country.value)).size;
     const indexedCount = sources.filter((source) => source.status !== "Search redirect").length;
     const redirectCount = sources.length - indexedCount;
     const countryCountEl = document.querySelector("#source-country-count");

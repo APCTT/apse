@@ -1,3 +1,4 @@
+import asyncio
 from typing import Optional
 
 from fastapi import APIRouter, Query
@@ -23,7 +24,7 @@ def get_sources():
 
 
 @router.get("/facets")
-def get_facets(
+async def get_facets(
     q: Optional[str] = Query(None, max_length=200),
     country: Optional[str] = Query(None, max_length=300),
     sector: Optional[str] = Query(None, max_length=300),
@@ -35,8 +36,28 @@ def get_facets(
     Counts follow standard faceted-search behavior: each group applies the
     current query and selections from the other groups, but not its own
     selection. This keeps alternative values useful while filters are active.
-    Live APIs are never called to calculate these counts.
+    Live APIs are not called for counts unless a source explicitly provides a
+    bounded, cached catalogue preparation step (currently APCTT only).
     """
+    preparable = [source for source in SOURCES if source.requires_facet_preparation]
+    preparation_results = await asyncio.gather(
+        *[
+            asyncio.wait_for(source.prepare_facets(), timeout=12.0)
+            for source in preparable
+        ],
+        return_exceptions=True,
+    )
+    unavailable_prepared_sources = {
+        source.id
+        for source, result in zip(preparable, preparation_results)
+        if isinstance(result, BaseException)
+    }
+    facet_available = {
+        source.id: source.facet_count_supported
+        and source.id not in unavailable_prepared_sources
+        for source in SOURCES
+    }
+
     transfer_types = sorted({s.transfer_type for s in SOURCES if s.transfer_type})
     query = (q or "").strip().lower()
     semantic_context = semantic_search.cached_query(query) if query else None
@@ -50,12 +71,14 @@ def get_facets(
     sector_counts[OTHER_SECTOR_CODE] = 0
     country_counts: dict[str, int | None] = {}
     for catalogue in SOURCES:
-        if catalogue.facet_count_supported:
+        if catalogue.multi_country:
+            continue
+        if facet_available[catalogue.id]:
             country_counts[catalogue.country] = 0
         else:
             country_counts.setdefault(catalogue.country, None)
     source_counts = {
-        catalogue.id: 0 if catalogue.facet_count_supported else None
+        catalogue.id: 0 if facet_available[catalogue.id] else None
         for catalogue in SOURCES
     }
 
@@ -63,10 +86,17 @@ def get_facets(
         for catalogue in SOURCES:
             if catalogue.status != "Metadata search":
                 continue
-            country_matches = not selected_countries or catalogue.country in selected_countries
+            if not facet_available[catalogue.id]:
+                continue
             source_matches = not selected_sources or catalogue.id in selected_sources
 
             for record in catalogue.facet_records():
+                record_countries = tuple(
+                    record.get("countries")
+                    or ([record["country"]] if record.get("country") else [catalogue.country])
+                )
+                for record_country in record_countries:
+                    country_counts.setdefault(record_country, 0)
                 if query:
                     if semantic_context and semantic_context.available:
                         is_match, _, _ = semantic_search.score_record(
@@ -80,9 +110,16 @@ def get_facets(
                         continue
                 classification = record["classification"]
                 sector_matches = matches_sector_filter(classification, selected_sectors)
+                country_matches = (
+                    not selected_countries
+                    or bool(selected_countries.intersection(record_countries))
+                )
 
                 if source_matches and sector_matches:
-                    country_counts[catalogue.country] = country_counts.get(catalogue.country, 0) + 1
+                    for record_country in record_countries:
+                        country_counts[record_country] = (
+                            country_counts.get(record_country, 0) or 0
+                        ) + 1
                 if country_matches and sector_matches:
                     source_counts[catalogue.id] = source_counts.get(catalogue.id, 0) + 1
                 if country_matches and source_matches:
