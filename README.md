@@ -1,117 +1,139 @@
 # Asia-Pacific Tech Gateway
 
-A search gateway for technology transfer databases across Asia and the Pacific. Built for APCTT (Asian and Pacific Centre for Transfer of Technology), a UN ESCAP body. Instead of visiting each country's technology database separately, you search once here and get results from all of them together.
+Asia-Pacific Tech Gateway (APTG) is a beta discovery service for searching
+technology offers and patent metadata from publicly accessible source platforms
+across Asia and the Pacific. It helps users discover relevant records in one
+place and then sends them to the original provider for authoritative details
+and follow-up.
 
-Plain HTML/CSS/JS frontend, no build step. FastAPI backend. Deployed on Render.
+APTG does not generally store the underlying technology documents. Searchable
+metadata is obtained through public APIs, public Drupal exports, or periodically
+reviewed crawler snapshots. Inclusion of a source does not imply a partnership,
+endorsement, or responsibility by the source institution for APTG. Records in
+the APCTT Technology Offers catalogue are submitted directly to APCTT; APCTT may
+review them and, where appropriate, support coordination with the submitter.
 
-## What's in here
+The service is currently in beta. Product, attribution, legal, and operational
+arrangements may change following formal review.
 
-The homepage has two views you switch between with the nav: **Search** (the search bar, filters, and results grid) and **Technology sources** (a card for each database with its own description and a link to search just that one). An "About" section sits underneath both as a shared footer.
+## How it works
 
-Search results from multiple databases are merged into one page using round robin, so you get a mix from every source instead of one source's results dumped first. A stats card at the top shows total technologies, total sources, and total countries, with a row of clickable chips (one per source) that filter the results down to just that source when you click one.
+- Searches registered metadata sources concurrently.
+- Merges results using round-robin pagination so one large source does not
+  dominate the first page.
+- Applies country, sector, database-type, and source filters in real time.
+- Uses query-aware facet counts for locally indexed catalogues.
+- Links each result to its original source record.
+- Falls back safely when an optional live source or semantic-search service is
+  unavailable.
 
-Technology sectors use an ISO ICS-based shared taxonomy. Each result preserves
-the provider's original category in `source_sector` and adds `sector_codes`,
+Technology sectors use an ISO ICS-based shared vocabulary. The internal model
+supports all 40 ISO ICS top-level fields. Provider categories are preserved in
+`source_sector`; normalized classifications are stored in `sector_codes`,
 `sector_labels`, `classification_method`, and `classification_confidence`.
-The internal vocabulary supports all 40 ISO ICS top-level fields. Detailed
-codes are retained on records and cards, while filter counts roll up to their
-two-digit parent field (for example, `07.080` rolls up to `07`). The filter
-options and counts come from `GET /api/v1/facets`, not from a hard-coded
-frontend list: sectors with no matching records are hidden, and records that
-cannot yet be mapped appear under `Other / Unclassified`. This is an ISO
-ICS-based vocabulary, not an ISO certification.
+Numeric ICS codes are used internally but the interface displays sector names.
+Uncertain or unmapped records remain searchable as `Other / Unclassified`.
+This is an ISO ICS-based vocabulary, not an ISO certification.
 
-## Sources currently wired in
+## Data sources
 
-| Source | Country | How it works |
+| Source | Coverage | Integration |
 |---|---|---|
-| Korea National Technology Bank | South Korea | Live API, fetched fresh each search |
-| WIPO PATENTSCOPE | International | Redirect only — opens WIPO's own search with your query filled in |
-| IP Australia Patent Search | Australia | Live API, but only works if you type an actual keyword |
-| CSIR India Technology Portal | India | Crawled once, served from a local JSON file |
-| DOST-TAPI | Philippines | Crawled once, served from a local JSON file |
-| Tech2Biz | Thailand | Crawled once, served from a local JSON file |
-| JST Japan Patent Portfolio | Japan | Crawled once, served from a local JSON file |
-| NRDC India | India | Crawled once, served from a local JSON file |
-| ITI Technology Bank | Sri Lanka | Public technology listings crawled into a local JSON index |
-| APCTT Technology Offers | Asia and the Pacific | Live public Drupal REST Export, cached in memory for one hour |
+| Korea National Technology Bank | Republic of Korea | Live public API; enabled when `KOREA_NTB_API_KEY` is configured |
+| WIPO PATENTSCOPE | International | Redirects to WIPO search with the user's query |
+| IP Australia Patent Search | Australia | Live public patent-search API; returns patent metadata rather than complete technology offers |
+| CSIR India Technology Portal | India | Reviewed crawler snapshot stored as JSON |
+| DOST-TAPI | Philippines | Reviewed crawler snapshot stored as JSON |
+| Tech2Biz | Thailand | Reviewed crawler snapshot stored as JSON |
+| JST Japan Patent Portfolio | Japan | Reviewed crawler snapshot stored as JSON |
+| NRDC India | India | Reviewed crawler snapshot stored as JSON |
+| ITI Technology Bank | Sri Lanka | Reviewed crawler snapshot stored as JSON |
+| APCTT Technology Offers | Asia and the Pacific | Public Drupal REST Export with a bundled fallback snapshot |
 
-The six crawled-and-cached sources (CSIR, DOST-TAPI, Tech2Biz, JST, NRDC, ITI) all share one class, `StaticJSONSource` in `backend/sources/static_json_source.py`. If you're adding a new source that's basically "crawl a site once, save it as JSON, search that JSON," subclass this instead of writing the load/search logic again — that's what it's there for.
+Source websites remain authoritative. Crawled snapshots can lag behind their
+providers and should be refreshed and reviewed before release. See
+[`docs/crawling.md`](docs/crawling.md) for the current crawler inventory and
+safe refresh procedure.
 
-## How the pieces fit together
+## Architecture
 
-```
+```text
 frontend/
-  index.html      the whole page markup, both views + about section
-  app.js          all the JS — search, filters, chips, the source cards page
-  styles.css      all the styling
+  index.html              Main search, sources, and About interface
+  app.js                  Search, filters, facets, cards, and navigation
+  styles.css              Responsive visual system
+  privacy-notice.html     Privacy notice
+  terms-of-use.html       Terms of use
 
 backend/
-  main.py                 FastAPI app, CORS, rate limiting, security headers
-  config.py                reads environment variables (API keys etc.)
+  main.py                 FastAPI app and CORS configuration
+  config.py               Environment-backed settings
   routers/
-    search.py              GET /api/v1/search — fans a query out to every source
-    sources.py              GET /api/v1/sources — lists the registered sources
+    search.py             Search endpoint
+    sources.py            Source inventory and query-aware facets
+    analytics.py          Privacy-preserving popular-topic counts
+  middleware/             Rate limiting and security headers
   sources/
-    base.py                 the interface every source class implements
-    static_json_source.py   shared base for the six crawled sources
-    registry.py              the list of which sources are actually active
-    korea_ntb.py, wipo_patentscope.py, ip_australia.py, apctt.py   live sources
-    csir_india.py, dost_tapi.py, tech2biz.py, jst_japan.py, nrdc_india.py, iti_sri_lanka.py
-                              the six crawled sources
-    data/*.json              the local crawled-record indexes
-  cache/
-    ttl_cache.py             caches search results so repeat queries don't re-hit every source
-  taxonomy/
-    iso_ics.py               shared source-category and keyword mappings to ISO ICS
-    apctt_taxonomy.py         verified APCTT Drupal country/sector TID mappings
-    ntb_sector_map.py        official NTB code mapping and reverse query mapping
-    data/ntb_to_ics.csv      reviewable NTB-to-ISO-ICS mapping table
+    base.py               Source interface
+    registry.py           Active source registry
+    static_json_source.py Shared loader/search implementation for snapshots
+    data/*.json           Reviewed searchable snapshots
+  taxonomy/               ISO ICS and provider-to-ICS mappings
+  analytics/              Allow-listed aggregate topic counts
+  search/                  Optional semantic and related-term search
+  cache/                   SQLite-backed ephemeral caches
 
 scripts/
-  crawl_*.py                the one-off scripts that produced the data/*.json files
+  dev.sh                  Local frontend and backend launcher
+  crawl_*.py              Manual crawler commands
+  build_semantic_index.py Optional semantic-index builder
 ```
 
-`scripts/crawl_slintec.py` is left over from a source (Slintec, Sri Lanka) that got crawled once and then removed from the site — its data file and source class are already deleted, so this script currently has nothing to point at. Either wire Slintec back in properly or delete the script; right now it just sits there unused.
+`scripts/crawl_slintec.py` is currently orphaned. Slintec is not registered as
+an active source and no Slintec production index is included.
 
-Crawler refreshes are manual and are not scheduled by Render or GitHub. See
-[`docs/crawling.md`](docs/crawling.md) for the current source inventory,
-crawler-only dependencies, validation command, and safe refresh procedure.
+## API endpoints
 
-### Privacy-preserving popular searches
+The backend exposes:
 
-The homepage reorders six editorially approved topics using aggregate counts
-from the previous 30 days. Only `topic_id`, date, and count are stored in
-`backend/cache/search_analytics.db`; arbitrary query text, IP addresses, and
-browser identifiers are not retained. Searches outside the predefined
-allow-list are ignored.
+| Method | Endpoint | Purpose |
+|---|---|---|
+| `GET` | `/health` | Service health check |
+| `GET` | `/api/v1/search` | Federated metadata search |
+| `GET` | `/api/v1/sources` | Registered source metadata |
+| `GET` | `/api/v1/facets` | Query- and filter-aware facets |
+| `GET` | `/api/v1/popular-searches` | Ranked allow-listed topics for the previous 30 days |
+| `POST` | `/api/v1/search-events` | Increment an allow-listed aggregate topic count |
 
-Set `SEARCH_ANALYTICS_DB_PATH` to move the SQLite file. Render's service
-filesystem is ephemeral, so production counts require that path to point to a
-persistent disk, or a future database-backed store. Without persistent
-storage, the feature still works but its counts reset when the service is
-replaced or redeployed.
+Interactive FastAPI documentation is available at `/docs` on a running backend.
 
-### Optional semantic search
+## Run locally
 
-The locally indexed catalogues can use Gemini embeddings to return
-conceptually related records in addition to exact keyword matches. This is a
-hybrid search: exact title and metadata matches keep a ranking boost, while
-semantic similarity can add records that use different terminology.
+Python 3.11 or newer is required.
 
-The feature is optional and fail-open. With no key, an exhausted free quota,
-or a temporary Gemini error, `/api/v1/search` continues using the original
-keyword behavior.
-
-Before a document-vector index exists, the same key powers a lightweight query
-expansion path. Gemini generates a short set of technical synonyms for a novel
-query, those terms are validated and stored locally, and an identical query
-reuses them without another API call. This makes the first deployment useful
-without consuming several days of free quota to embed the full catalogue.
-
-Add a free Gemini API key to `.env`:
-
+```sh
+python3.11 -m venv .venv
+. .venv/bin/activate
+python -m pip install -r backend/requirements.txt
+./scripts/dev.sh
 ```
+
+On Windows, activate the environment with `.venv\Scripts\activate` and start
+the frontend and backend separately using equivalent commands.
+
+Open `http://127.0.0.1:5501`. The frontend uses
+`http://127.0.0.1:8000/api/v1` when served from localhost and the deployed API
+elsewhere.
+
+The bundled snapshots work without API credentials. To enable optional live or
+semantic features, create an ignored `.env` file in the repository root:
+
+```dotenv
+KOREA_NTB_API_KEY=your_data_go_kr_key
+KOREA_NTB_BASE_URL=https://apis.data.go.kr/B552536/tech_4/techall
+KOREA_NTB_TTL_SECONDS=86400
+CACHE_TTL_SECONDS=86400
+
 GEMINI_API_KEY=your_google_ai_studio_key
 GEMINI_RELATED_TERMS_MODEL=gemini-3.5-flash-lite
 SEMANTIC_SEARCH_ENABLED=true
@@ -119,133 +141,103 @@ SEMANTIC_SEARCH_MODEL=gemini-embedding-001
 SEMANTIC_SEARCH_DIMENSIONS=768
 SEMANTIC_SEARCH_DB_PATH=backend/cache/semantic_search.db
 SEMANTIC_SEARCH_DAILY_QUERY_LIMIT=800
+
+SEARCH_ANALYTICS_DB_PATH=backend/cache/search_analytics.db
 ```
 
-Build the local document index once, and rerun the same command after a
-crawler refresh. Only new or changed records are sent:
+Never commit `.env` or expose API keys in frontend code.
 
-```
+## Search analytics and semantic search
+
+Popular searches retain only `topic_id`, date, and aggregate count for six
+predefined topics. Arbitrary queries, IP addresses, and browser identifiers are
+not stored. Searches outside the allow-list are ignored.
+
+Semantic search is optional and fail-open. When Gemini is unavailable, the
+daily quota is exhausted, or no document-vector index exists, search continues
+with keyword matching and locally cached related terms. The configured default
+limit is 800 Gemini query calls per Pacific-time day. Query-vector records use
+a SHA-256 hash of the normalized query rather than the raw query.
+
+Build or refresh the local semantic index after changing crawler data:
+
+```sh
 python scripts/build_semantic_index.py
+python scripts/build_semantic_index.py --source csir_india
 ```
 
-Use `--source csir_india` to update one source. Search-query vectors are cached
-for 30 days. The database stores only a SHA-256 hash for each normalized user
-query, not the raw query. Public catalogue keywords from strong semantic
-matches can accumulate as related terms for that same hashed query. Queries
-that resemble email addresses, URLs, or phone numbers are excluded from this
-learning step.
+## Deployment
 
-Only a cache miss reserves a Gemini query call. The default hard limit is 800
-calls per Pacific-time day; once reached, remaining searches automatically use
-the keyword and accumulated-related-term fallback. The counter is updated
-atomically before an API request, so simultaneous searches cannot overshoot
-the configured limit within one backend instance.
+Production currently uses separate Render services for the static frontend and
+FastAPI backend. The public frontend is available at
+[`https://ap-tg.net`](https://ap-tg.net), while the frontend calls the backend
+at `https://apsei-api.onrender.com/api/v1`.
 
-`backend/cache/semantic_search.db` is intentionally gitignored. On Render it
-must eventually live on a persistent disk, or be generated during the build,
-otherwise the index resets whenever the service filesystem is replaced.
+`render.yaml` describes the backend service, but it is not the complete source
+of truth for the existing frontend service or the settings configured in the
+Render dashboard. Confirm build commands, environment variables, instance
+type, and manual/automatic deployment settings in Render before changing them.
+The currently configured backend build command reads the root
+`requirements.txt`; keep it synchronized with `backend/requirements.txt` unless
+the dashboard command is changed first.
 
-## Running it locally
+The paid backend instance avoids free-tier inactivity spin-down. SQLite files
+remain ephemeral unless their configured paths point to a persistent disk or
+external database: data can still reset during replacement deployments,
+service recreation, or other filesystem resets.
 
-You need Python 3.11 or newer.
+When deploying frontend changes, update the query versions attached to
+`styles.css` and `app.js` in `frontend/index.html` so browsers do not continue
+using stale assets. Do not document a fixed version number here; the HTML file
+is the source of truth.
 
-```
-python3.11 -m venv .venv
-. .venv/bin/activate
-python -m pip install -r backend/requirements.txt
-```
+## Security and privacy
 
-On Windows, activate the environment with `.venv\Scripts\activate` instead.
+- Backend responses include CSP, HSTS, `X-Content-Type-Options`, frame,
+  referrer, and permissions policies.
+- The frontend defines a restrictive CSP in its HTML documents.
+- Technology and source values are escaped before being rendered into cards.
+- The public API is rate-limited and CORS is restricted to the deployed APTG,
+  APCTT, and local development origins.
+- External links open with `noopener noreferrer`.
+- API keys are read only from backend environment variables.
 
-The app runs without API credentials using its bundled static data sources. To
-also enable the live Korea NTB source, make a `.env` file in the project root
-(don't commit it — it's already gitignored):
+The current CORS allow-list is defined in `backend/main.py`; update it when the
+frontend domain changes. See [`docs/troubleshooting.md`](docs/troubleshooting.md)
+for common local and deployment issues.
 
-```
-KOREA_NTB_API_KEY=your_key
-KOREA_NTB_BASE_URL=https://apis.data.go.kr/B552536/tech_4/techall
-CACHE_TTL_SECONDS=86400
-```
+## Adding a source
 
-IP Australia uses the public Australian Patent Search endpoint and does not
-require local API credentials.
+For a live API, create `backend/sources/<name>.py`, subclass `BaseSource`,
+implement `search()` and `is_healthy()`, and register it in
+`backend/sources/registry.py`.
 
-Start both the backend and frontend:
+For a periodically crawled catalogue:
 
-```
-./scripts/dev.sh
-```
+1. Add a crawler under `scripts/` that writes to a staging file by default.
+2. Validate and review the snapshot before replacing production data.
+3. Store the reviewed output under `backend/sources/data/`.
+4. Subclass `StaticJSONSource` and register the source.
+5. Preserve the provider category and add a reviewable mapping in
+   `backend/taxonomy/iso_ics.py`.
 
-Then open `http://127.0.0.1:5501`. The frontend automatically uses the local
-API at `http://127.0.0.1:8000` when served from localhost, and the deployed API
-everywhere else. The APCTT-aligned theme is the default; append
-`?theme=classic` to compare it with the original APSE design.
+Set `sector_filter_supported = True` only when the source mapping and filtered
+pagination have been verified. Do not force uncertain classifications.
 
-## Deploying
+Korea NTB uses `backend/taxonomy/data/ntb_to_ics.csv` to map native technology
+codes to ISO ICS. APCTT uses verified Drupal country and sector TIDs in
+`backend/taxonomy/apctt_taxonomy.py`. Its public REST Export is
+`https://www.apctt.org/api/technology-offers?_format=json`; live failures fall
+back to `backend/sources/data/apctt_fallback.json`.
 
-There are two Render services: `apse-api` (the backend) and `apse-frontend` (the static site). Both are set to **manual deploy** — pushing to GitHub does not automatically redeploy either one. After pushing, go into each service's Render dashboard and hit deploy.
+## Known limitations
 
-Render's free tier has no persistent disk and the service spins down after about 15 minutes of no traffic. The first request after that takes 20-40 seconds to wake back up — the frontend already handles this (it retries for a while and shows a "waking up" message instead of just failing).
-
-One catch worth knowing: Render's actual build command is `pip install -r requirements.txt`, reading from the **root** `requirements.txt`, not `backend/requirements.txt` — even though `render.yaml` in this repo says otherwise. If you ever "clean up" the duplicate root `requirements.txt` because it looks redundant, the deploy will break. Keep both in sync, or check the Render dashboard's actual build command before touching either file.
-
-## Adding a new source
-
-If it's a live API: create `backend/sources/<name>.py`, subclass `BaseSource`, implement `search()` and `is_healthy()`, add it to `backend/sources/registry.py`.
-
-If it's a site you're going to crawl once and store locally: write a one-off crawl script in `scripts/`, save the output to `backend/sources/data/<name>.json`, then create a source class subclassing `StaticJSONSource` (see `csir_india.py` for the shortest example — it's about 8 lines).
-
-For a crawled source, retain the provider's original category in the JSON
-`sector` field and add its mapping in `backend/taxonomy/iso_ics.py`. The facet
-API will then expose the resulting ISO ICS top-level sector automatically.
-Official ISO top-level codes and labels map directly; source-specific labels
-still require an explicit, reviewable mapping. Do not force an uncertain match:
-unmapped records remain searchable under `Other / Unclassified`.
-
-For a live API source, set `sector_filter_supported = True` only after its
-native category or IPC codes have a verified mapping to ISO ICS and the
-upstream API can return correctly paginated results for that filter. Until
-then, the source remains available for keyword searches but is omitted from
-sector-filtered searches so totals are not silently distorted.
-
-Korea NTB maps its official native technology-category codes to ISO ICS. For a
-sector selection, the backend converts the selected ISO ICS code back to the
-preferred NTB code and sends it as the API's native `tcateCode` filter. Its
-filter shows a green availability dot rather than a number because the Gateway
-does not store the full NTB catalogue for advance counting. The mapping source
-and review notes are in `backend/taxonomy/data/ntb_to_ics.csv`.
-
-APCTT uses the public Drupal REST Export at
-`https://www.apctt.org/api/technology-offers?_format=json`. No API key is
-required. The source caches the catalogue in memory for one hour, detects and
-stops repeated pages, and applies country and ISO ICS filters locally using the
-verified Drupal TIDs in `backend/taxonomy/apctt_taxonomy.py`. The supplied
-sector taxonomy contains the 40 ISO ICS top-level sectors plus a separate
-`Other Technologies n.e.c.` term. Some cloud-hosting egress ranges receive an
-HTTP 403 from APCTT's edge security, so the live request falls back to the last
-reviewed public snapshot in `backend/sources/data/apctt_fallback.json` and
-retries the live catalogue after five minutes.
-
-## Issues we ran into while building this (so you don't have to rediscover them)
-
-**Running the frontend locally on the "wrong" port gives you CORS errors.** `backend/main.py` only allows a fixed list of origins to call the API: `https://apsei.onrender.com`, `https://apctt.org`, `https://www.apctt.org`, `http://localhost:5501`, and `http://127.0.0.1:5501`. If you serve the frontend locally on a different port — VS Code's Live Server defaults to 5500, `python -m http.server` picks whatever port you give it — calls to the deployed backend will fail with a CORS error in the console, and it'll look like the backend is broken when it's actually just not expecting requests from that origin. Either serve the frontend on port 5501 to match what's already allowed, or add your local port to the `allow_origins` list in `main.py` (don't forget to remove it again before deploying, or just leave it since it's only a localhost entry).
-
-**The search results cache doesn't last as long as it looks like it should.** `backend/cache/ttl_cache.py` uses a SQLite file with a 24-hour TTL, which sounds like it should hold results for a full day. In practice, Render's free tier wipes the filesystem every time the service spins down from inactivity, so the cache resets far more often than the TTL suggests. It's not broken, it just isn't doing what the number implies. If this ever actually matters (higher traffic, need for real day-long caching), that means either a paid Render disk or moving to something like Redis — not a code fix on our end.
-
-**Editing the frontend and not seeing your changes.** `app.js` and `styles.css` are loaded with plain `<script src="app.js">` / `<link href="styles.css">` tags, no cache-busting. Browsers will happily keep serving an old cached copy of these files even after you've edited them and reloaded the page — a full refresh sometimes isn't enough. Both files are now loaded with a `?v=` version number on the end (`app.js?v=4`); bump that number whenever you ship a real change to either file, or people's browsers (including your own, while testing) may quietly run stale code and make you think a fix didn't work when it did.
-
-**The search results cache key was missing a filter.** The cache key for `/api/v1/search` is built from the query and filters — but for a while it didn't include the `exclude` parameter, meaning two searches that only differed by `exclude` could collide and one would silently get back the other's cached results. It never actually broke anything live since nothing in the frontend was using `exclude` at the time, but it's the kind of bug that only shows up once something starts using that parameter and gets confusing results with no obvious cause. Worth remembering if you ever wire `exclude` into a real feature — check the cache key includes every parameter that changes the result.
-
-**Chips that filter by source need to fully replace the selection, not add to it.** Early on, clicking a source chip added it to whatever was already selected instead of replacing it — so clicking "WIPO" right after clicking "DOST" left both active, and the results looked like the wrong source's data was showing up. It wasn't wrong data, it was two sources still selected at once with no visual cue. If you build another filter chip row, make each click a clean replace (or make the additive behavior obvious in the UI) rather than assuming users will notice a previous selection is still active.
-
-## A few things worth doing at some point (not done yet, just flagging)
-
-These aren't broken, they're just gaps that would matter more if this gets more traffic or more public visibility:
-
-- A Content-Security-Policy header, so that if a crawled source ever returned something malicious, the browser has a second layer of protection beyond escaping the text (which is already done in `technologyCard()` in `app.js`).
-- Dependency scanning (Dependabot or similar) — nothing is currently watching for known vulnerabilities in `fastapi`, `httpx`, etc. Worth turning on later, but be aware GitHub's default Dependabot config opens a PR for every newer version, not just security fixes, so it can get noisy if you don't scope it to security-only updates.
-- An HSTS header, mostly relevant if this ever gets its own custom domain instead of `*.onrender.com`.
-- Some way to notice if the API is getting hammered by one IP repeatedly — right now it just quietly rate-limits and moves on, with nothing logged anywhere you'd see it.
-- Rotating the API keys (Korea NTB, IP Australia) every so often, just as general hygiene for keys that don't expire on their own.
-
-None of these are urgent. The system works fine without them — they're the kind of thing worth doing if someone ever formally security-reviews this, not things that are currently causing problems.
+- Crawler snapshots are not refreshed automatically.
+- Some upstream services can be intermittent or block cloud-hosting egress.
+- Live-source facet totals may be unavailable when the complete upstream
+  catalogue is not locally indexed.
+- The repository currently has no declared open-source license. Do not assume
+  permission to redistribute the code or bundled source metadata without the
+  appropriate APCTT and source-provider review.
+- Dependency alerting and operational rate-limit monitoring are not yet
+  configured in this repository.
