@@ -20,6 +20,12 @@ class Technology(BaseModel):
     dev_status: str = ""
     reg_date: str = ""
     sub_sector: str = ""
+    # Generic record metadata used by catalogue types that are not technology
+    # transfer offers (for example, patent search records).
+    record_type: str = ""
+    reference_id: str = ""
+    patent_type: str = ""
+    priority_date: str = ""
     # Shared taxonomy fields. `source_sector` preserves the provider's original
     # category while `sector_codes` and `sector_labels` use ISO ICS.
     source_sector: str = ""

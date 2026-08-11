@@ -167,7 +167,8 @@ KOREA_NTB_BASE_URL=https://apis.data.go.kr/B552536/tech_4/techall
 CACHE_TTL_SECONDS=86400
 ```
 
-`IP_AUSTRALIA_CLIENT_ID` / `IP_AUSTRALIA_CLIENT_SECRET` are optional — without them, IP Australia just won't show up as a source.
+IP Australia uses the public Australian Patent Search endpoint and does not
+require local API credentials.
 
 Start both the backend and frontend:
 

@@ -152,7 +152,76 @@ function flagForCountry(country, source) {
 // Technology fields come from crawled external sources, not from us — never
 // trust them into innerHTML unescaped (a scraped title/summary containing
 // "<img onerror=...>" would otherwise execute in every visitor's browser).
+function formatPatentLabel(value) {
+  return String(value || "")
+    .toLowerCase()
+    .replace(/(^|[\s-])\S/g, (letter) => letter.toUpperCase());
+}
+
+function patentTechnologyCard(technology, source) {
+  const cardCountry = technology.country || source.country;
+  const flag = flagForCountry(cardCountry, source);
+  const url = safeUrl(technology.url);
+  const patentType = formatPatentLabel(technology.patent_type);
+  const patentStatus = formatPatentLabel(technology.dev_status);
+  const visibleMeta = [
+    technology.reference_id ? `Application ${technology.reference_id}` : "",
+    patentType ? `${patentType} patent` : "",
+    patentStatus ? `Status: ${patentStatus}` : "",
+  ].filter(Boolean);
+  const detailRows = [
+    ["Application number", technology.reference_id],
+    ["Patent type", patentType],
+    ["Filing date", technology.reg_date],
+    ["Earliest priority", technology.priority_date],
+    ["Patent status", patentStatus],
+  ]
+    .filter(([, value]) => value)
+    .map(([label, value]) => `
+      <div class="detail-row">
+        <span class="detail-label">${label}</span>
+        <span class="detail-value">${escapeHtml(value)}</span>
+      </div>`)
+    .join("");
+
+  return `
+    <article class="technology-card patent-record-card" data-tech-id="${escapeHtml(technology.id)}">
+      <div class="card-top-row">
+        <div class="card-context">
+          <span class="card-sector">Patent record</span>
+          <span class="card-country">${flag} ${escapeHtml(cardCountry)}</span>
+        </div>
+        <span class="card-source-pill" title="${escapeHtml(source.name)}">${escapeHtml(source.name)}</span>
+      </div>
+      <h4 class="card-title">${escapeHtml(technology.title)}</h4>
+      ${technology.org_name ? `
+        <p class="patent-applicant">
+          <span>Applicant</span>
+          ${escapeHtml(technology.org_name)}
+        </p>` : ""}
+      ${visibleMeta.length ? `
+        <div class="card-details patent-card-meta">
+          ${visibleMeta.map((value) => `<span>${escapeHtml(value)}</span>`).join("")}
+        </div>` : ""}
+      <div class="card-footer">
+        ${detailRows ? `
+          <details class="card-detail-disclosure">
+            <summary>Patent details</summary>
+            <div class="card-detail-panel">${detailRows}</div>
+          </details>` : "<span></span>"}
+        <div class="card-actions">
+          ${url ? `<a class="button button-primary card-external-link" href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">View patent record ↗</a>` : ""}
+        </div>
+      </div>
+    </article>
+  `;
+}
+
 function technologyCard(technology, source) {
+  if (technology.source_id === "ip_australia") {
+    return patentTechnologyCard(technology, source);
+  }
+
   const keywords = technology.keywords.slice(0, 3);
   const sectorCodes = technology.sector_codes || [];
   const sectorLabels = technology.sector_labels || [];
@@ -927,9 +996,9 @@ const SOURCE_DETAIL = {
     size: "6,000+",
     sizeValue: 6000,
     sizeLabel: "patents",
-    description: "Australian patent applications and grants searched via the IP Australia Patent Search API. Covers innovation patents, standard patents, and PCT national phase entries.",
-    coverage: "Australia — all patent applications lodged with IP Australia, including PCT applications entering the national phase.",
-    searchHint: "Results link directly to the Australian Patent Search portal for full specifications.",
+    description: "Official metadata for Australian patent applications and grants from IP Australia. These records support prior-art and patent discovery; they do not by themselves indicate that a technology is offered for licensing or transfer.",
+    coverage: "Australian patent jurisdiction — includes standard, provisional and innovation patent records, as well as PCT applications entering the national phase.",
+    searchHint: "Search by title, applicant, inventor or keyword. Results show filing metadata and link to the official Australian Patent Search record for specifications and legal details.",
   },
   csir_india: {
     flag: "🇮🇳",

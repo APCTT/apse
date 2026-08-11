@@ -22,7 +22,7 @@ _iti_sri_lanka = ITISriLankaSource()
 SOURCES = [
     *([KoreaNTBSource()] if settings.KOREA_NTB_API_KEY else []),
     WIPOPatentscopeSource(),
-    *([_ip_aus] if settings.IP_AUSTRALIA_CLIENT_ID else []),
+    _ip_aus,
     _csir,
     _dost,
     _tech2biz,
