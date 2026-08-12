@@ -173,13 +173,58 @@ function flagForCountry(country, source) {
   return matchingSource ? SOURCE_DETAIL[matchingSource.id].flag : "";
 }
 
+const JST_PATENT_LIST_URL = "https://www.jst.go.jp/chizai/en/patent_en.html";
+const JST_LICENSING_EMAIL = "license@jst.go.jp";
+
+function jstPatentLinks(technology) {
+  if (technology.source_id !== "jst_japan") return null;
+
+  const referenceId = String(technology.reference_id || "").trim();
+  const hasPatentDocument = /^\d+$/.test(referenceId);
+  const officialUrl = JST_PATENT_LIST_URL;
+  const destinationUrl = hasPatentDocument
+    ? `https://www.jst.go.jp/chizai/pdf/US${referenceId}B2.pdf`
+    : `https://patents.google.com/?q=${encodeURIComponent(`"${referenceId}" "${technology.title}"`)}`;
+  const referenceLabel = hasPatentDocument ? "US patent number" : "US application number";
+  const referenceDisplay = referenceId
+    ? `${hasPatentDocument ? "US " : ""}${referenceId}`
+    : "See JST patent listing";
+  const subjectReference = referenceId
+    ? `${hasPatentDocument ? "US Patent" : "US Patent Application"} ${referenceId}`
+    : technology.title;
+  const subject = `Licensing inquiry – ${subjectReference}`;
+  const body = [
+    "Dear JST Department of Intellectual Property Management,",
+    "",
+    "I am interested in the following invention listed by JST:",
+    `Title: ${technology.title}`,
+    referenceId ? `${referenceLabel}: ${referenceDisplay}` : null,
+    `Official JST listing: ${officialUrl}`,
+    "",
+    "Organisation:",
+    "Intended use:",
+    "Country/region:",
+    "",
+    "Kind regards,",
+  ].filter((line) => line !== null).join("\n");
+
+  return {
+    destinationUrl,
+    destinationLabel: hasPatentDocument ? "View JST patent document ↗" : "Find on Google Patents ↗",
+    officialUrl,
+    hasPatentDocument,
+    referenceLabel,
+    referenceDisplay,
+    inquiryUrl: `mailto:${JST_LICENSING_EMAIL}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`,
+  };
+}
+
 // ── Render functions ──────────────────────────────────────────────────────────
 
 // Technology fields come from crawled external sources, not from us — never
 // trust them into innerHTML unescaped (a scraped title/summary containing
 // "<img onerror=...>" would otherwise execute in every visitor's browser).
 function technologyCard(technology, source) {
-  const keywords = technology.keywords.slice(0, 3);
   const sectorCodes = technology.sector_codes || [];
   const sectorLabels = technology.sector_labels || [];
   const selectedSectorCode = sectorCodes.find((code) =>
@@ -192,13 +237,19 @@ function technologyCard(technology, source) {
     ? `${escapeHtml(sectorLabel)}${additionalSectorCount ? ` +${additionalSectorCount}` : ""}`
     : escapeHtml(technology.sector);
   const allSectors = sectorLabels.join(", ");
+  const inventorOnlySummary = technology.source_id === "jst_japan"
+    && /^Inventors?:/i.test(technology.summary || "");
+  const cardSummary = inventorOnlySummary
+    ? "Patent available for international licensing through JST."
+    : technology.summary;
 
+  const jstLinks = jstPatentLinks(technology);
   const detailRows = [
-    ["Organisation",      technology.org_name],
-    ["Sectors",           allSectors],
-    ["Source category",   technology.source_sector],
-    ["Sub-sector",        technology.sub_sector],
-    ["Registered",        technology.reg_date],
+    ["Organisation",         technology.org_name],
+    ["Standardized sectors", allSectors],
+    ["Development status",   technology.dev_status],
+    ["Source record date",   technology.reg_date],
+    ...(jstLinks ? [[jstLinks.referenceLabel, jstLinks.referenceDisplay]] : []),
   ]
     .filter(([, v]) => v)
     .map(([label, value]) => `
@@ -211,10 +262,20 @@ function technologyCard(technology, source) {
   const needsTranslation = technology.language === "Korean";
   const cardCountry = technology.country || source.country;
   const flag = flagForCountry(cardCountry, source);
-  const url = safeUrl(technology.url);
-  const quickMeta = [
-    technology.dev_status,
-  ].filter(Boolean);
+  const url = safeUrl(jstLinks?.destinationUrl || technology.url);
+  const jstContactDetails = jstLinks ? `
+    <div class="jst-contact-details">
+      <div class="detail-row">
+        <span class="detail-label">Licensing contact</span>
+        <a class="detail-value" href="mailto:${JST_LICENSING_EMAIL}">${JST_LICENSING_EMAIL}</a>
+      </div>
+      <div class="detail-row">
+        <span class="detail-label">Official source</span>
+        <a class="detail-value" href="${escapeHtml(jstLinks.officialUrl)}" target="_blank" rel="noopener noreferrer">View official JST listing ↗</a>
+      </div>
+      <p>Send licensing enquiries to JST. Please do not contact individual inventors directly.</p>
+      ${jstLinks.hasPatentDocument ? "" : "<p>Google Patents is provided as an external discovery aid. Confirm current status and licensing availability with JST.</p>"}
+    </div>` : "";
 
   return `
     <article class="technology-card" data-tech-id="${escapeHtml(technology.id)}" ${needsTranslation ? 'data-needs-translation="true"' : ""}>
@@ -226,23 +287,16 @@ function technologyCard(technology, source) {
         <span class="card-source-pill" title="${escapeHtml(source.name)}">${escapeHtml(source.name)}</span>
       </div>
       <h4 class="card-title">${escapeHtml(technology.title)}</h4>
-      <p class="card-summary">${escapeHtml(technology.summary) || "No summary available."}</p>
-      ${keywords.length ? `
-        <div class="card-keywords">
-          ${keywords.map((k) => `<span class="keyword-tag">${escapeHtml(k)}</span>`).join("")}
-        </div>` : ""}
-      ${quickMeta.length ? `
-        <div class="card-details">
-          ${quickMeta.map((value) => `<span>${escapeHtml(value)}</span>`).join("")}
-        </div>` : ""}
+      <p class="card-summary">${escapeHtml(cardSummary) || "Description available from the original source."}</p>
       <div class="card-footer">
         ${detailRows ? `
           <details class="card-detail-disclosure">
             <summary>More details</summary>
-            <div class="card-detail-panel">${detailRows}</div>
+            <div class="card-detail-panel">${detailRows}${jstContactDetails}</div>
           </details>` : "<span></span>"}
         <div class="card-actions">
-          ${url ? `<a class="button button-primary card-external-link" href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">View original source ↗</a>` : ""}
+          ${jstLinks ? `<a class="button button-secondary card-contact-link" href="${escapeHtml(jstLinks.inquiryUrl)}">Contact JST about licensing</a>` : ""}
+          ${url ? `<a class="button button-primary card-external-link" href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">${jstLinks ? jstLinks.destinationLabel : "View original source ↗"}</a>` : ""}
         </div>
       </div>
     </article>
@@ -991,8 +1045,8 @@ const SOURCE_DETAIL = {
     sizeValue: 303,
     sizeLabel: "patents",
     description: "Japan Science and Technology Agency (JST) patent portfolio — patents from Japanese universities and public research institutes explicitly available for international licensing across 14 technology categories.",
-    coverage: "Japan — patents from JST-funded research institutions covering biotech, materials, semiconductors, energy, medical devices, software, robotics, and more. Each patent links directly to Google Patents for full specifications.",
-    searchHint: "Search by technology name, inventor, or category (e.g. 'BIOTECHNOLOGY', 'ENERGY/GREEN'). Licensing enquiries: license@jst.go.jp",
+    coverage: "Japan — patents from JST-funded research institutions covering biotech, materials, semiconductors, energy, medical devices, software, robotics, and more. Granted patents link to JST-hosted documents; applications without a JST PDF use Google Patents as a discovery aid.",
+    searchHint: "Search by technology name, inventor, or category. Confirm current status and licensing availability with JST; licensing enquiries go to license@jst.go.jp.",
   },
   nrdc_india: {
     flag: "🇮🇳",
@@ -1009,6 +1063,13 @@ const SOURCE_DETAIL = {
     description: "Public technology listings from Sri Lanka's Industrial Technology Institute (ITI). ITI links this catalogue as Available Technologies; current transfer availability should be confirmed directly with the institution.",
     coverage: "Sri Lanka — public ITI listings covering food, herbal-product, and environmental technologies.",
     searchHint: "Search by technology name or application area. Each result opens the original ITI technology document.",
+  },
+  malaysia_rd_portal: {
+    flag: "🇲🇾",
+    sizeLabel: "R&D products and technologies",
+    description: "Public R&D product and technology records presented through Malaysia's R&D Commercialisation Portal. The Gateway indexes non-contact metadata only and directs users to the original portal for current details and enquiries.",
+    coverage: "Malaysia — R&D products and technologies from companies, universities, research institutes, and public agencies represented through the MySTI and Malaysia Commercialisation Year programmes.",
+    searchHint: "Search by product or technology name, description, provider, application area, or portal category. Open the original portal record for current commercialisation and contact information.",
   },
 };
 

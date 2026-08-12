@@ -47,6 +47,7 @@ This is an ISO ICS-based vocabulary, not an ISO certification.
 | JST Japan Patent Portfolio | Japan | Reviewed crawler snapshot stored as JSON |
 | NRDC India | India | Reviewed crawler snapshot stored as JSON |
 | ITI Technology Bank | Sri Lanka | Reviewed crawler snapshot stored as JSON |
+| Malaysia R&D Commercialisation Portal | Malaysia | Reviewed public-catalogue snapshot stored as JSON; contact fields omitted |
 | APCTT Technology Offers | Asia and the Pacific | Public Drupal REST Export with a bundled fallback snapshot |
 
 Source websites remain authoritative. Crawled snapshots can lag behind their

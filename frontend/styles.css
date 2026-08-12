@@ -1173,6 +1173,31 @@
   color: var(--ink);
 }
 
+.jst-contact-details {
+  display: grid;
+  gap: 8px;
+  margin-top: 2px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+}
+
+.jst-contact-details a {
+  color: var(--blue-700);
+  font-weight: 700;
+}
+
+.jst-contact-details p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.card-contact-link {
+  min-height: 35px;
+  padding: 8px 12px;
+}
+
 .card-details {
   display: flex;
   flex-wrap: wrap;

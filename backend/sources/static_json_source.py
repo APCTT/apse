@@ -12,6 +12,7 @@ from backend.search.semantic import (
     semantic_search,
 )
 from backend.taxonomy.iso_ics import (
+    ICS_LABELS,
     ICS_TOP_LEVEL_LABELS,
     OTHER_SECTOR_CODE,
     OTHER_SECTOR_LABEL,
@@ -61,8 +62,33 @@ class StaticJSONSource(BaseSource):
                 self._records = json.load(f)
             for rec in self._records:
                 source_sector = rec.get("sector", "")
+                explicit_codes = tuple(
+                    dict.fromkeys(
+                        str(code).strip()
+                        for code in (rec.get("sector_codes") or [])
+                        if str(code).strip() in ICS_LABELS
+                    )
+                )
                 explicit_code = str(rec.get("sector_code", "")).strip()
-                if explicit_code in ICS_TOP_LEVEL_LABELS:
+                if explicit_codes:
+                    confidence = str(
+                        rec.get("classification_confidence", "high")
+                    ).strip()
+                    if confidence not in {"high", "medium", "low"}:
+                        confidence = "low"
+                    classification = SectorClassification(
+                        source_sector=source_sector,
+                        codes=explicit_codes,
+                        labels=tuple(
+                            ICS_LABELS[code]
+                            for code in explicit_codes
+                        ),
+                        method=str(
+                            rec.get("classification_method", "indexed_sector_codes")
+                        ),
+                        confidence=confidence,
+                    )
+                elif explicit_code in ICS_TOP_LEVEL_LABELS:
                     confidence = str(
                         rec.get("classification_confidence", "high")
                     ).strip()

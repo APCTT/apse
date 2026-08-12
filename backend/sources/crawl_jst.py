@@ -5,10 +5,10 @@ Source: https://www.jst.go.jp/chizai/en/patent_en.html
 Run: python -m backend.sources.crawl_jst
 """
 import json
-import time
-import re
-import httpx
 from pathlib import Path
+from urllib.parse import urljoin
+
+import httpx
 from bs4 import BeautifulSoup
 
 OUTPUT = Path(__file__).parent / "data" / "jst_japan.json"
@@ -80,8 +80,14 @@ def crawl():
         categories = [c.strip() for c in categories_raw.split(",") if c.strip()]
         sector = map_sector(categories)
 
-        pat_no = re.sub(r"\D", "", patent_no)
-        patent_url = f"https://patents.google.com/patent/US{pat_no}B2" if pat_no else "https://www.jst.go.jp/chizai/en/patent_en.html"
+        # Prefer the official JST-hosted patent document. Rows for pending
+        # applications have no document link and therefore return users to the
+        # official JST patent listing instead.
+        patent_url = (
+            urljoin(URL, pat_link.get("href"))
+            if pat_link and pat_link.get("href")
+            else URL
+        )
 
         records.append({
             "id": f"jst_{i+1:04d}",

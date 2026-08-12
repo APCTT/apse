@@ -7,6 +7,7 @@ from backend.sources.jst_japan import JSTJapanSource
 from backend.sources.nrdc_india import NRDCIndiaSource
 from backend.sources.apctt import APCTTSource
 from backend.sources.iti_sri_lanka import ITISriLankaSource
+from backend.sources.malaysia_rd_portal import MalaysiaRDPortalSource
 from backend.config import settings
 
 _csir = CSIRIndiaSource()
@@ -16,6 +17,7 @@ _jst = JSTJapanSource()
 _nrdc = NRDCIndiaSource()
 _apctt = APCTTSource()
 _iti_sri_lanka = ITISriLankaSource()
+_malaysia_rd_portal = MalaysiaRDPortalSource()
 
 SOURCES = [
     *([KoreaNTBSource()] if settings.KOREA_NTB_API_KEY else []),
@@ -26,6 +28,7 @@ SOURCES = [
     _jst,
     _nrdc,
     _iti_sri_lanka,
+    _malaysia_rd_portal,
     _apctt,
 ]
 
