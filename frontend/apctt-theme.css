@@ -89,12 +89,6 @@
   display: none;
 }
 
-.site-language-select {
-  border-color: #d7e4eb;
-  border-radius: 0;
-  font-family: var(--font-body);
-}
-
 .hero {
   border-bottom: 1px solid #d7e4eb;
   background: linear-gradient(110deg, #fff 0%, #eaf4f8 100%);

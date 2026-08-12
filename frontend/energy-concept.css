@@ -276,10 +276,6 @@ html[data-concept="network"] .about-section {
 }
 
 @media (max-width: 720px) {
-  html[data-concept="network"] .nav-translate {
-    display: flex;
-  }
-
   html[data-concept="network"] .results-toolbar-main > *,
   html[data-concept="network"] .results-heading,
   html[data-concept="network"] .global-stats-bar {
