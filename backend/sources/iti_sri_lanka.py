@@ -9,4 +9,5 @@ class ITISriLankaSource(StaticJSONSource):
     url = "https://www.iti.lk/technology-transfer/"
     ttl_seconds = 86400
     transfer_type = "Technology transfer / licensing"
+    last_indexed = "2026-08-10"
     org_default = "Industrial Technology Institute (ITI)"

@@ -1,0 +1,35 @@
+name: Quality and security checks
+
+on:
+  push:
+  pull_request:
+  schedule:
+    - cron: "17 4 1 * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Install test tools
+        run: python -m pip install -r requirements-dev.txt
+      - name: Run backend tests
+        run: python -m pytest -q
+      - name: Run frontend tests
+        run: node --test tests/frontend-security.test.js tests/merged-pagination.test.js
+      - name: Validate reviewed catalogue snapshots
+        run: python scripts/validate_crawled_data.py
+      - name: Audit backend dependencies
+        run: python -m pip_audit -r backend/requirements.txt

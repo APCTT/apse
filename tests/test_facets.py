@@ -3,6 +3,7 @@ import unittest
 from unittest.mock import patch
 
 from backend.routers.sources import get_facets
+from backend.search.semantic import SemanticQueryContext
 from backend.taxonomy.iso_ics import classify_sector
 
 
@@ -15,7 +16,14 @@ def facets(**overrides):
         "database_type": None,
     }
     params.update(overrides)
-    return asyncio.run(get_facets(**params))
+    # Facet tests verify deterministic keyword filtering. Do not let a local
+    # developer's persisted semantic cache broaden the fixture query.
+    context = SemanticQueryContext(query=(params.get("q") or "").strip().lower())
+    with patch(
+        "backend.routers.sources.semantic_search.cached_query",
+        return_value=context,
+    ):
+        return asyncio.run(get_facets(**params))
 
 
 class QueryAwareFacetTests(unittest.TestCase):

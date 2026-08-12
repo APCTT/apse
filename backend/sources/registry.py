@@ -1,6 +1,5 @@
 from backend.sources.korea_ntb import KoreaNTBSource
 from backend.sources.wipo_patentscope import WIPOPatentscopeSource
-from backend.sources.ip_australia import IPAustraliaSource
 from backend.sources.csir_india import CSIRIndiaSource
 from backend.sources.dost_tapi import DOSTTAPISource
 from backend.sources.tech2biz import Tech2BizSource
@@ -10,7 +9,6 @@ from backend.sources.apctt import APCTTSource
 from backend.sources.iti_sri_lanka import ITISriLankaSource
 from backend.config import settings
 
-_ip_aus = IPAustraliaSource()
 _csir = CSIRIndiaSource()
 _dost = DOSTTAPISource()
 _tech2biz = Tech2BizSource()
@@ -22,7 +20,6 @@ _iti_sri_lanka = ITISriLankaSource()
 SOURCES = [
     *([KoreaNTBSource()] if settings.KOREA_NTB_API_KEY else []),
     WIPOPatentscopeSource(),
-    _ip_aus,
     _csir,
     _dost,
     _tech2biz,

@@ -161,6 +161,39 @@ class SemanticStoreTests(unittest.TestCase):
             1,
         )
 
+    def test_concurrent_identical_queries_share_one_api_request(self):
+        class SlowRelatedClient:
+            def __init__(self):
+                self.calls = 0
+
+            async def expand(self, query):
+                self.calls += 1
+                await asyncio.sleep(0.02)
+                return ("photovoltaic water pump", "off-grid irrigation")
+
+        engine = SemanticSearchEngine()
+        engine.store = self.store
+        engine.client = None
+        engine.related_client = SlowRelatedClient()
+        engine.daily_query_limit = 800
+
+        async def run_concurrently():
+            return await asyncio.gather(
+                engine.prepare_query("solar irrigation"),
+                engine.prepare_query(" Solar   Irrigation "),
+                engine.prepare_query("solar irrigation"),
+            )
+
+        contexts = asyncio.run(run_concurrently())
+
+        self.assertEqual(engine.related_client.calls, 1)
+        self.assertEqual(len(contexts), 3)
+        self.assertTrue(all(context.related_terms for context in contexts))
+        self.assertEqual(
+            self.store.api_request_count("gemini_semantic_query"),
+            1,
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

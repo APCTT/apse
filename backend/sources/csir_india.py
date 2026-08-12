@@ -9,4 +9,5 @@ class CSIRIndiaSource(StaticJSONSource):
     url = "https://techindiacsir.anusandhan.net/online/Control.do?_tech="
     ttl_seconds = 86400
     transfer_type = "Technology transfer / licensing"
+    last_indexed = "2026-08-10"
     org_default = "Council of Scientific and Industrial Research (CSIR)"

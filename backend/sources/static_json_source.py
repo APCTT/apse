@@ -1,7 +1,7 @@
 import json
 import logging
 from dataclasses import replace
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 from backend.sources.base import BaseSource
@@ -43,6 +43,7 @@ class StaticJSONSource(BaseSource):
     sector_filter_supported = True
     facet_count_supported = True
     sector_provenance: str = "source"
+    access_method = "Reviewed snapshot"
 
     def __init__(self):
         self._data_path = _DATA_DIR / f"{self.id}.json"
@@ -130,7 +131,7 @@ class StaticJSONSource(BaseSource):
             source_id=self.id,
             source_name=self.name,
             url=rec["url"],
-            fetched_at=datetime.utcnow(),
+            fetched_at=datetime.now(timezone.utc),
             org_name=rec.get("institute") or self.org_default,
             transfer_type=self.transfer_type,
             dev_status=rec.get("trl", ""),

@@ -590,12 +590,36 @@ class SemanticSearchEngine:
             else None
         )
         self._document_cache: dict[str, dict[str, tuple[float, ...]]] = {}
+        self._inflight_queries: dict[
+            str, asyncio.Task[SemanticQueryContext]
+        ] = {}
 
     async def prepare_query(self, query: str) -> SemanticQueryContext:
-        self.store.purge_expired_query_data()
         normalized = normalize_query(query)
         if not normalized:
             return SemanticQueryContext(query="")
+
+        # The frontend searches each registered catalogue concurrently. Those
+        # HTTP requests can arrive together with the same query, so share one
+        # Gemini expansion task instead of spending quota once per source.
+        existing = self._inflight_queries.get(normalized)
+        if existing is not None:
+            return await asyncio.shield(existing)
+
+        task = asyncio.create_task(self._prepare_query_once(normalized))
+        self._inflight_queries[normalized] = task
+
+        def discard(completed: asyncio.Task[SemanticQueryContext]) -> None:
+            if self._inflight_queries.get(normalized) is completed:
+                self._inflight_queries.pop(normalized, None)
+
+        task.add_done_callback(discard)
+        return await asyncio.shield(task)
+
+    async def _prepare_query_once(
+        self, normalized: str
+    ) -> SemanticQueryContext:
+        self.store.purge_expired_query_data()
 
         related = self.store.related_terms(normalized)
         vector = self.store.get_query_vector(

@@ -13,7 +13,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
     Render's free tier runs a single instance, so an in-memory store is
     sufficient — no need for Redis. Protects against a single client (or a
     misbehaving script) hammering the API and starving other visitors, or
-    exhausting the external Korea NTB / IP Australia rate limits.
+    exhausting external live-source API quotas such as Korea NTB.
     """
 
     def __init__(

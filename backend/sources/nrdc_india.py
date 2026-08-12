@@ -9,4 +9,5 @@ class NRDCIndiaSource(StaticJSONSource):
     url = "https://nrdcindia.com/Pages/Technology Available for Commercialization"
     ttl_seconds = 86400
     transfer_type = "Technology transfer / licensing"
+    last_indexed = "2026-08-10"
     org_default = "NRDC"

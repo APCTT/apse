@@ -24,6 +24,10 @@ class BaseSource(ABC):
     multi_country: bool = False
     # Live catalogues may hydrate a short-lived index before facet counting.
     requires_facet_preparation: bool = False
+    # Short, user-facing provenance shown on the source inventory. Snapshot
+    # sources should also provide an ISO date in `last_indexed`.
+    access_method: str = "Live source"
+    last_indexed: str = ""
 
     @abstractmethod
     async def search(self, query: str, filters: dict) -> tuple[list[Technology], int]:
@@ -45,6 +49,8 @@ class BaseSource(ABC):
             transfer_type=self.transfer_type,
             sector_filter_supported=self.sector_filter_supported,
             multi_country=self.multi_country,
+            access_method=self.access_method,
+            last_indexed=self.last_indexed,
         )
 
     async def prepare_facets(self) -> None:

@@ -7,15 +7,16 @@ avoids a paid background worker or database.
 
 ## Current configuration
 
-There is currently no GitHub Actions workflow, Render Cron Job, launchd job, or
-other scheduler in this repository. Every crawler is a manual, full refresh;
-the safeguarded crawlers shown below write staging snapshots by default.
+Crawler refreshes remain manual and reviewed; there is no unattended crawler
+scheduler in this repository. GitHub Actions validates committed snapshots and
+the deployed API, but does not replace production data automatically. The
+safeguarded crawlers shown below write staging snapshots by default.
 
 | Source | Command | Output | Last repository update |
 |---|---|---|---|
 | CSIR India | `python scripts/crawl_csir.py` | `csir_india.staging.json` | 2026-08-10 |
 | DOST-TAPI | `python scripts/crawl_dost_tapi.py` | `dost_tapi.staging.json` | 2026-08-10 |
-| Tech2Biz | `python scripts/crawl_tech2biz.py` | `tech2biz.json` | 2026-06-26 |
+| Tech2Biz | `python scripts/crawl_tech2biz.py` | `tech2biz.staging.json` | 2026-08-10 |
 | JST Japan | `python -m backend.sources.crawl_jst` | `jst_japan.json` | 2026-06-30 |
 | NRDC India | `python -m backend.sources.crawl_nrdc` | `nrdc_india.staging.json` | 2026-08-10 |
 | ITI Sri Lanka | `python scripts/crawl_iti_sri_lanka.py --output backend/sources/data/iti_sri_lanka.json --replace-production` | `iti_sri_lanka.json` | 2026-08-10 |
@@ -88,8 +89,8 @@ Start with a reviewed manual refresh rather than an unattended schedule:
 - CSIR, DOST-TAPI, JST, NRDC, and ITI: monthly
 - Tech2Biz: every two or three months because the translation step is slower
   and depends on a third-party free quota
-- Live API sources (Korea NTB and IP Australia): do not crawl; keep the
-  existing on-demand API call and 24-hour search cache
+- Live API source (Korea NTB): do not crawl; keep the existing on-demand API
+  call and 24-hour search cache
 
 Once two consecutive manual refreshes are clean, these commands can move to a
 monthly GitHub Actions workflow. Keep crawling outside Render so the hosting

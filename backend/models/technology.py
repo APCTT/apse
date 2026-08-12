@@ -48,3 +48,5 @@ class Source(BaseModel):
     transfer_type: str = ""
     sector_filter_supported: bool = False
     multi_country: bool = False
+    access_method: str = ""
+    last_indexed: str = ""

@@ -10,6 +10,7 @@ class WIPOPatentscopeSource(BaseSource):
     status = "Search redirect"
     url = "https://patentscope.wipo.int/search/en/search.jsf"
     ttl_seconds = 86400
+    access_method = "External search"
 
     async def search(self, query: str, filters: dict) -> tuple[list[Technology], int]:
         return [], 0

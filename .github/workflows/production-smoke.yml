@@ -1,0 +1,24 @@
+name: Production API smoke check
+
+on:
+  schedule:
+    - cron: "23 2 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Fetch production endpoints
+        run: |
+          curl --fail --silent --show-error --retry 3 --retry-delay 5 https://apsei-api.onrender.com/health -o /tmp/health.json
+          curl --fail --silent --show-error --retry 3 --retry-delay 5 https://apsei-api.onrender.com/api/v1/sources -o /tmp/sources.json
+          curl --fail --silent --show-error --retry 3 --retry-delay 5 https://apsei-api.onrender.com/api/v1/facets -o /tmp/facets.json
+          curl --fail --silent --show-error --retry 3 --retry-delay 5 'https://apsei-api.onrender.com/api/v1/search?source=csir_india' -o /tmp/search.json
+      - name: Verify production responses
+        run: |
+          python -c "import json; h=json.load(open('/tmp/health.json')); s=json.load(open('/tmp/sources.json')); f=json.load(open('/tmp/facets.json')); r=json.load(open('/tmp/search.json')); assert h.get('status') == 'ok'; ids={x['id'] for x in s}; assert 'ip_australia' not in ids; assert len(ids) >= 8; assert f.get('sources'); assert r.get('results'); print('healthy:', len(ids), 'sources,', len(r['results']), 'sample records')"

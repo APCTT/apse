@@ -11,6 +11,9 @@ const {
 // Runtime state — sources populated on init, technologies fetched on each search
 let sourcesCache = [];
 let sectorOptionsCache = [];
+let activeResultsController = null;
+let activeFacetController = null;
+let filterRenderTimer = null;
 
 const GLOBAL_PAGE_SIZE = 20;
 
@@ -123,6 +126,19 @@ function syncFacetControls() {
   multiselectInstances.forEach((container) => container._render?.());
 }
 
+function cancelScheduledFilterRender() {
+  if (filterRenderTimer) clearTimeout(filterRenderTimer);
+  filterRenderTimer = null;
+}
+
+function scheduleFilterRender() {
+  cancelScheduledFilterRender();
+  filterRenderTimer = setTimeout(() => {
+    filterRenderTimer = null;
+    renderResults();
+  }, 180);
+}
+
 // ── Helpers (unchanged) ──────────────────────────────────────────────────────
 
 const statusClass = (status) => {
@@ -139,6 +155,16 @@ const sourceInitials = (name) =>
     .map((word) => word[0])
     .join("");
 
+function formatIndexedDate(value) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value || "")) return "";
+  return new Intl.DateTimeFormat("en-GB", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    timeZone: "UTC",
+  }).format(new Date(`${value}T00:00:00Z`));
+}
+
 function flagForCountry(country, source) {
   if (country === source.country) return (SOURCE_DETAIL[source.id] || {}).flag || "";
   const matchingSource = sourcesCache.find((candidate) =>
@@ -152,76 +178,7 @@ function flagForCountry(country, source) {
 // Technology fields come from crawled external sources, not from us — never
 // trust them into innerHTML unescaped (a scraped title/summary containing
 // "<img onerror=...>" would otherwise execute in every visitor's browser).
-function formatPatentLabel(value) {
-  return String(value || "")
-    .toLowerCase()
-    .replace(/(^|[\s-])\S/g, (letter) => letter.toUpperCase());
-}
-
-function patentTechnologyCard(technology, source) {
-  const cardCountry = technology.country || source.country;
-  const flag = flagForCountry(cardCountry, source);
-  const url = safeUrl(technology.url);
-  const patentType = formatPatentLabel(technology.patent_type);
-  const patentStatus = formatPatentLabel(technology.dev_status);
-  const visibleMeta = [
-    technology.reference_id ? `Application ${technology.reference_id}` : "",
-    patentType ? `${patentType} patent` : "",
-    patentStatus ? `Status: ${patentStatus}` : "",
-  ].filter(Boolean);
-  const detailRows = [
-    ["Application number", technology.reference_id],
-    ["Patent type", patentType],
-    ["Filing date", technology.reg_date],
-    ["Earliest priority", technology.priority_date],
-    ["Patent status", patentStatus],
-  ]
-    .filter(([, value]) => value)
-    .map(([label, value]) => `
-      <div class="detail-row">
-        <span class="detail-label">${label}</span>
-        <span class="detail-value">${escapeHtml(value)}</span>
-      </div>`)
-    .join("");
-
-  return `
-    <article class="technology-card patent-record-card" data-tech-id="${escapeHtml(technology.id)}">
-      <div class="card-top-row">
-        <div class="card-context">
-          <span class="card-sector">Patent record</span>
-          <span class="card-country">${flag} ${escapeHtml(cardCountry)}</span>
-        </div>
-        <span class="card-source-pill" title="${escapeHtml(source.name)}">${escapeHtml(source.name)}</span>
-      </div>
-      <h4 class="card-title">${escapeHtml(technology.title)}</h4>
-      ${technology.org_name ? `
-        <p class="patent-applicant">
-          <span>Applicant</span>
-          ${escapeHtml(technology.org_name)}
-        </p>` : ""}
-      ${visibleMeta.length ? `
-        <div class="card-details patent-card-meta">
-          ${visibleMeta.map((value) => `<span>${escapeHtml(value)}</span>`).join("")}
-        </div>` : ""}
-      <div class="card-footer">
-        ${detailRows ? `
-          <details class="card-detail-disclosure">
-            <summary>Patent details</summary>
-            <div class="card-detail-panel">${detailRows}</div>
-          </details>` : "<span></span>"}
-        <div class="card-actions">
-          ${url ? `<a class="button button-primary card-external-link" href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">View patent record ↗</a>` : ""}
-        </div>
-      </div>
-    </article>
-  `;
-}
-
 function technologyCard(technology, source) {
-  if (technology.source_id === "ip_australia") {
-    return patentTechnologyCard(technology, source);
-  }
-
   const keywords = technology.keywords.slice(0, 3);
   const sectorCodes = technology.sector_codes || [];
   const sectorLabels = technology.sector_labels || [];
@@ -285,16 +242,16 @@ function technologyCard(technology, source) {
             <div class="card-detail-panel">${detailRows}</div>
           </details>` : "<span></span>"}
         <div class="card-actions">
-          ${url ? `<a class="button button-primary card-external-link" href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">${technology.source_id === "ip_australia" ? "View patent source ↗" : "View original source ↗"}</a>` : ""}
+          ${url ? `<a class="button button-primary card-external-link" href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">View original source ↗</a>` : ""}
         </div>
       </div>
     </article>
   `;
 }
 
-// Google's public translate endpoint (same service backing the page-wide
-// Google Translate widget) — no API key needed. Long text gets split into
-// multiple chunks in the response, which we rejoin.
+// Google's public translate endpoint is used only for Korean NTB metadata —
+// no API key needed. Long text gets split into multiple chunks in the
+// response, which we rejoin.
 async function translateText(text) {
   if (!text || text.trim().length < 2) return text;
   const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=ko&tl=en&dt=t&q=${encodeURIComponent(text.slice(0, 500))}`;
@@ -468,11 +425,11 @@ function sourcePageCacheKey(sourceId, backendPage) {
   });
 }
 
-async function fetchSourcePage(sourceId, backendPage) {
+async function fetchSourcePage(sourceId, backendPage, signal) {
   const key = sourcePageCacheKey(sourceId, backendPage);
   if (sourcePageCache.has(key)) return sourcePageCache.get(key);
 
-  const request = fetchResults({ source: sourceId, page: backendPage })
+  const request = fetchResults({ source: sourceId, page: backendPage }, signal)
     .then((data) => {
       const result = {
         items: (data.results || []).filter((r) => r.source_id === sourceId),
@@ -496,13 +453,13 @@ async function fetchSourcePage(sourceId, backendPage) {
   return request;
 }
 
-async function buildMergedPage(globalPage, activeIds) {
+async function buildMergedPage(globalPage, activeIds, signal) {
   if (!activeIds.length) {
     return { items: [], page: 1, totalAcrossSources: 0, totalPages: 1, failedSources: [] };
   }
 
   const sourceMap = Object.fromEntries(sourcesCache.map((s) => [s.id, s]));
-  const firstPages = await Promise.all(activeIds.map((id) => fetchSourcePage(id, 1)));
+  const firstPages = await Promise.all(activeIds.map((id) => fetchSourcePage(id, 1, signal)));
   const sourceTotals = Object.fromEntries(
     activeIds.map((id, index) => [id, firstPages[index].total])
   );
@@ -528,7 +485,7 @@ async function buildMergedPage(globalPage, activeIds) {
     const separator = pageKey.lastIndexOf(":");
     const sourceId = pageKey.slice(0, separator);
     const backendPage = Number(pageKey.slice(separator + 1));
-    const data = await fetchSourcePage(sourceId, backendPage);
+    const data = await fetchSourcePage(sourceId, backendPage, signal);
     pageData.set(pageKey, data);
     if (data.failed) failedSources.add(sourceId);
   }));
@@ -556,11 +513,6 @@ async function buildMergedPage(globalPage, activeIds) {
 
 function renderMergedGrid(items) {
   if (!items.length) {
-    // IP Australia's search API needs an actual keyword — selecting it alone
-    // with no query silently returns nothing otherwise, which reads as broken.
-    if (!state.query && state.sources.length === 1 && state.sources[0] === "ip_australia") {
-      return `<div class="empty-state"><h3>Enter a keyword to search IP Australia</h3><p>IP Australia's search API requires a keyword — it can't list all patents at once. Type a term above to search it.</p></div>`;
-    }
     const heading = state.query
       ? `No technologies available for "${escapeHtml(state.query)}"`
       : "No matching technologies found";
@@ -613,14 +565,14 @@ function recordTrackedTopicSearch(query) {
   }).catch(() => {});
 }
 
-async function fetchFacets() {
+async function fetchFacets({ signal } = {}) {
   const params = new URLSearchParams();
   if (state.query) params.set("q", state.query);
   if (state.countries.length) params.set("country", state.countries.join(","));
   if (state.sectors.length) params.set("sector", state.sectors.join(","));
   if (state.sources.length) params.set("source", state.sources.join(","));
   if (state.databaseTypes.length) params.set("database_type", state.databaseTypes.join(","));
-  const res = await fetch(`${API_BASE}/facets?${params}`);
+  const res = await fetch(`${API_BASE}/facets?${params}`, { signal });
   if (!res.ok) throw new Error("Facets fetch failed");
   return res.json();
 }
@@ -648,7 +600,18 @@ function updateFacetOptions(facets) {
 }
 
 async function refreshFacetCounts(token) {
-  const facets = await fetchFacets();
+  activeFacetController?.abort();
+  const controller = new AbortController();
+  activeFacetController = controller;
+  let facets;
+  try {
+    facets = await fetchFacets({ signal: controller.signal });
+  } catch (error) {
+    if (error.name === "AbortError") return;
+    throw error;
+  } finally {
+    if (activeFacetController === controller) activeFacetController = null;
+  }
   if (token !== renderResultsToken) return;
   updateFacetOptions(facets);
   renderActiveFilters();
@@ -663,6 +626,7 @@ async function withWakeupRetry(fn, { attempts = 6, delayMs = 6000, onRetry } = {
     try {
       return await fn();
     } catch (e) {
+      if (e?.name === "AbortError") throw e;
       lastErr = e;
       if (i < attempts - 1) {
         onRetry?.(i + 1, attempts);
@@ -673,7 +637,7 @@ async function withWakeupRetry(fn, { attempts = 6, delayMs = 6000, onRetry } = {
   throw lastErr;
 }
 
-async function fetchResults(overrides = {}) {
+async function fetchResults(overrides = {}, signal) {
   const params = new URLSearchParams();
   const page = overrides.page || 1;
   const src  = overrides.source !== undefined ? overrides.source : state.sources.join(",");
@@ -684,7 +648,7 @@ async function fetchResults(overrides = {}) {
   if (src)            params.set("source", src);
   if (excl)           params.set("exclude", excl);
   if (page > 1)       params.set("page", page);
-  const res = await fetch(`${API_BASE}/search?${params}`);
+  const res = await fetch(`${API_BASE}/search?${params}`, { signal });
   if (!res.ok) throw new Error(`Search failed: ${res.status}`);
   return res.json();
 }
@@ -804,11 +768,6 @@ function getActiveMergeIds() {
   const explicitlyWantsNTB = state.sources.includes("korea_ntb") || state.countries.includes("Republic of Korea");
   if (!explicitlyWantsNTB) ids = ids.filter((id) => id !== "korea_ntb");
 
-  // IP Australia's quick-search API requires a real query term — including it
-  // in the round-robin denominator for a blank search wastes page capacity
-  // since it always contributes 0 items.
-  if (!state.query) ids = ids.filter((id) => id !== "ip_australia");
-
   return ids;
 }
 
@@ -847,6 +806,10 @@ async function renderResults() {
   // resolve out of order; only the most recent call is allowed to write to
   // the DOM, so a slow stale response can't clobber a newer one.
   const token = ++renderResultsToken;
+  activeResultsController?.abort();
+  sourcePageCache.clear();
+  const requestController = new AbortController();
+  activeResultsController = requestController;
   syncSearchMode();
   renderActiveFilters();
   refreshFacetCounts(token).catch(() => {});
@@ -864,14 +827,16 @@ async function renderResults() {
 
   let merged;
   try {
-    merged = await withWakeupRetry(() => buildMergedPage(state.mergedPage, activeIds), {
+    merged = await withWakeupRetry(() => buildMergedPage(state.mergedPage, activeIds, requestController.signal), {
       onRetry: () => {
         if (token === renderResultsToken) {
           els.results.innerHTML = `<div class="empty-state"><p>Waking up the search service — this can take up to 30 seconds on first load…</p></div>`;
         }
       },
     });
-  } catch {
+  } catch (error) {
+    if (activeResultsController === requestController) activeResultsController = null;
+    if (error.name === "AbortError") return;
     if (token === renderResultsToken) {
       els.results.innerHTML = `
         <div class="empty-state">
@@ -881,6 +846,8 @@ async function renderResults() {
     }
     return;
   }
+
+  if (activeResultsController === requestController) activeResultsController = null;
 
   if (token !== renderResultsToken) return; // a newer call already started; discard this stale result
   state.mergedPage = merged.page;
@@ -923,16 +890,16 @@ async function renderResults() {
   const includesNTB = activeIds.includes("korea_ntb");
   const sourceMap = Object.fromEntries(sourcesCache.map((s) => [s.id, s]));
   const totalCountries = new Set(filterableIds.map((id) => sourceMap[id]?.country).filter(Boolean)).size;
-  const totalVisibleSources = new Set([
-    ...filterableIds,
-    ...redirectSources.map((source) => source.id),
-  ]).size;
-  updateStatsBar(merged.totalAcrossSources, totalVisibleSources, totalCountries);
+  const searchableSourceCount = filterableIds.length;
+  updateStatsBar(merged.totalAcrossSources, searchableSourceCount, totalCountries);
   if (!isBlankState) {
     els.title.textContent = state.query
       ? `${merged.totalAcrossSources.toLocaleString()} results for "${state.query}"`
       : `${merged.totalAcrossSources.toLocaleString()} matching records`;
-    els.summary.textContent = `${totalVisibleSources.toLocaleString()} indexed source${totalVisibleSources === 1 ? "" : "s"} · ${totalCountries.toLocaleString()} countr${totalCountries === 1 ? "y" : "ies"}`;
+    const redirectSummary = redirectSources.length
+      ? ` · ${redirectSources.length.toLocaleString()} external search`
+      : "";
+    els.summary.textContent = `${searchableSourceCount.toLocaleString()} searchable catalogue${searchableSourceCount === 1 ? "" : "s"} · ${totalCountries.toLocaleString()} countr${totalCountries === 1 ? "y" : "ies"}${redirectSummary}`;
   }
 
   // Fetch Korea NTB's live total in the background purely for the tech-count
@@ -946,7 +913,7 @@ async function renderResults() {
         const ntbTotal = data.source_totals?.korea_ntb || 0;
         if (lastActiveIds !== activeIds) return; // a newer search superseded this one
         const combinedTotal = merged.totalAcrossSources + ntbTotal;
-        updateStatsBar(combinedTotal, totalVisibleSources, totalCountries);
+        updateStatsBar(combinedTotal, searchableSourceCount, totalCountries);
         if (hasActiveSearch()) {
           els.title.textContent = state.query
             ? `${combinedTotal.toLocaleString()} results for "${state.query}"`
@@ -991,15 +958,6 @@ const SOURCE_DETAIL = {
     coverage: "Global — includes Asia-Pacific offices: JP, KR, CN, IN, AU, SG, TH, VN, PH, MY, ID, NZ and 140+ other countries.",
     searchHint: "Clicking 'Search on WIPO' will open PATENTSCOPE with your query pre-filled.",
   },
-  ip_australia: {
-    flag: "🇦🇺",
-    size: "6,000+",
-    sizeValue: 6000,
-    sizeLabel: "patents",
-    description: "Official metadata for Australian patent applications and grants from IP Australia. These records support prior-art and patent discovery; they do not by themselves indicate that a technology is offered for licensing or transfer.",
-    coverage: "Australian patent jurisdiction — includes standard, provisional and innovation patent records, as well as PCT applications entering the national phase.",
-    searchHint: "Search by title, applicant, inventor or keyword. Results show filing metadata and link to the official Australian Patent Search record for specifications and legal details.",
-  },
   csir_india: {
     flag: "🇮🇳",
     size: "1,739",
@@ -1025,7 +983,7 @@ const SOURCE_DETAIL = {
     sizeLabel: "technologies",
     description: "Tech2Biz is Thailand's national technology matching platform, connecting researchers from NSTDA institutes and universities with investors and entrepreneurs seeking innovations for commercialisation.",
     coverage: "Thailand — technologies from NSTDA, universities, and public R&D institutes across agriculture, health, ICT, materials, food, energy, and manufacturing.",
-    searchHint: "Search in English — titles have been translated from Thai. Use the Translate button on each card to read full descriptions in English.",
+    searchHint: "Search in English. The reviewed snapshot preserves the original Thai metadata and provides English text where translation has been verified.",
   },
   jst_japan: {
     flag: "🇯🇵",
@@ -1065,6 +1023,10 @@ function sourceDetailCard(source, representedCount) {
     !isRedirect ? "Keyword search" : "",
     source.sector_filter_supported ? "ISO sector filters" : "",
   ].filter(Boolean);
+  const indexedDate = formatIndexedDate(source.last_indexed);
+  const provenance = [source.access_method, indexedDate ? `Last indexed ${indexedDate}` : ""]
+    .filter(Boolean)
+    .join(" · ");
   return `
     <article class="source-detail-card" id="source-${sourceId}">
       <div class="sdc-header">
@@ -1081,6 +1043,8 @@ function sourceDetailCard(source, representedCount) {
         <span class="sdc-country">${detail.flag || ""} ${escapeHtml(source.country)}</span>
         <span class="sdc-access ${isRedirect ? "is-external" : "is-searchable"}"><i aria-hidden="true"></i>${accessLabel}</span>
       </div>
+
+      ${provenance ? `<p class="sdc-provenance">${escapeHtml(provenance)}</p>` : ""}
 
       ${Number.isFinite(representedCount) ? `<div class="sdc-catalogue-size">
         <strong>${representedCount.toLocaleString()}</strong>
@@ -1142,7 +1106,7 @@ async function renderSourcesTable() {
       (next) => {
         state.countries = next;
         state.mergedPage = 1;
-        renderResults();
+        scheduleFilterRender();
       },
       { defaultOpen: true }
     );
@@ -1153,7 +1117,7 @@ async function renderSourcesTable() {
       (next) => {
         state.sectors = next;
         state.mergedPage = 1;
-        renderResults();
+        scheduleFilterRender();
       },
       { defaultOpen: true }
     );
@@ -1164,7 +1128,7 @@ async function renderSourcesTable() {
       (next) => {
         state.databaseTypes = next;
         state.mergedPage = 1;
-        renderResults();
+        scheduleFilterRender();
       },
       { defaultOpen: true }
     );
@@ -1175,7 +1139,7 @@ async function renderSourcesTable() {
       (next) => {
         state.sources = next;
         state.mergedPage = 1;
-        renderResults();
+        scheduleFilterRender();
       },
       { defaultOpen: true }
     );
@@ -1219,6 +1183,7 @@ async function renderSourcesTable() {
 // ── Event listeners ────────────────────────────────────────────────────────
 
 function runSearch(query) {
+  cancelScheduledFilterRender();
   state.query = query.trim();
   state.mergedPage = 1;  // reset pagination on new search
   els.input.value = state.query;
@@ -1250,6 +1215,7 @@ document.querySelector("#popular-chips").addEventListener("click", (event) => {
 });
 
 els.clear.addEventListener("click", () => {
+  cancelScheduledFilterRender();
   state.query = "";
   state.countries = [];
   state.sectors = [];
@@ -1272,6 +1238,7 @@ els.activeFilters?.addEventListener("click", (event) => {
     state[filterType] = state[filterType].filter((value) => value !== filterValue);
   }
   state.mergedPage = 1;
+  cancelScheduledFilterRender();
   syncFacetControls();
   renderResults();
 });
@@ -1296,6 +1263,7 @@ document.querySelector(".filter-close").addEventListener("click", closeFilterShe
 els.filterBackdrop.addEventListener("click", closeFilterSheet);
 
 els.resetFilters.addEventListener("click", () => {
+  cancelScheduledFilterRender();
   FILTER_STATE_KEYS.forEach((key) => {
     state[key] = [];
   });
@@ -1383,6 +1351,7 @@ function openSourcePage(sourceId, { pushHistory = true } = {}) {
         <span class="status ${statusClass(source.status)}">${escapeHtml(source.status)}</span>
         <h2 class="sp-name" id="source-page-title">${safeSourceName}</h2>
         <p class="sp-country">${detail.flag || ""} ${escapeHtml(source.country)} · ${escapeHtml(source.institution)}</p>
+        ${source.access_method ? `<p class="sp-provenance">${escapeHtml(source.access_method)}${formatIndexedDate(source.last_indexed) ? ` · Last indexed ${escapeHtml(formatIndexedDate(source.last_indexed))}` : ""}</p>` : ""}
       </div>
     </div>
     <p class="sp-desc">${escapeHtml(detail.description || "")}</p>

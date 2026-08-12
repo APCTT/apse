@@ -46,6 +46,7 @@ class APCTTSource(BaseSource):
     facet_count_supported = True
     requires_facet_preparation = True
     multi_country = True
+    access_method = "Live public catalogue"
 
     _API_URL = "https://www.apctt.org/api/technology-offers"
     _MAX_PAGES = 100

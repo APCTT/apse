@@ -3,7 +3,7 @@ import httpx
 import logging
 import math
 import xml.etree.ElementTree as ET
-from datetime import datetime
+from datetime import datetime, timezone
 from urllib.parse import unquote
 
 from backend.sources.base import BaseSource
@@ -30,6 +30,7 @@ class KoreaNTBSource(BaseSource):
     # as an upstream filter. The verified mapping lives in a reviewable CSV.
     # Facet counts remain unavailable because the full catalogue is not stored.
     sector_filter_supported = True
+    access_method = "Live API"
 
     def _normalize(self, item: ET.Element) -> Technology:
         def f(tag: str) -> str:
@@ -67,7 +68,7 @@ class KoreaNTBSource(BaseSource):
             source_id=self.id,
             source_name=self.name,
             url=f"https://www.ntb.kr/market/selectFullTechAndRecommend.do?techKey=&stechNum={tech_id}" if tech_id else self.url,
-            fetched_at=datetime.utcnow(),
+            fetched_at=datetime.now(timezone.utc),
             org_name=f("orgName"),
             transfer_type=f("transType"),
             dev_status=f("devStatusName"),

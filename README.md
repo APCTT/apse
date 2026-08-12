@@ -1,7 +1,7 @@
 # Asia-Pacific Tech Gateway
 
 Asia-Pacific Tech Gateway (APTG) is a beta discovery service for searching
-technology offers and patent metadata from publicly accessible source platforms
+technology offers and transfer or licensing listings from publicly accessible source platforms
 across Asia and the Pacific. It helps users discover relevant records in one
 place and then sends them to the original provider for authoritative details
 and follow-up.
@@ -41,7 +41,6 @@ This is an ISO ICS-based vocabulary, not an ISO certification.
 |---|---|---|
 | Korea National Technology Bank | Republic of Korea | Live public API; enabled when `KOREA_NTB_API_KEY` is configured |
 | WIPO PATENTSCOPE | International | Redirects to WIPO search with the user's query |
-| IP Australia Patent Search | Australia | Live public patent-search API; returns patent metadata rather than complete technology offers |
 | CSIR India Technology Portal | India | Reviewed crawler snapshot stored as JSON |
 | DOST-TAPI | Philippines | Reviewed crawler snapshot stored as JSON |
 | Tech2Biz | Thailand | Reviewed crawler snapshot stored as JSON |
@@ -124,6 +123,20 @@ the frontend and backend separately using equivalent commands.
 Open `http://127.0.0.1:5501`. The frontend uses
 `http://127.0.0.1:8000/api/v1` when served from localhost and the deployed API
 elsewhere.
+
+For the same checks used in continuous integration, install the development
+requirements and run:
+
+```sh
+python -m pip install -r requirements-dev.txt
+python -m pytest -q
+node --test tests/frontend-security.test.js tests/merged-pagination.test.js
+python scripts/validate_crawled_data.py
+python -m pip_audit -r backend/requirements.txt
+```
+
+GitHub Actions repeats these checks on pushes and pull requests, performs a
+monthly dependency audit, and checks the deployed API endpoints each day.
 
 The bundled snapshots work without API credentials. To enable optional live or
 semantic features, create an ignored `.env` file in the repository root:
@@ -239,5 +252,10 @@ back to `backend/sources/data/apctt_fallback.json`.
 - The repository currently has no declared open-source license. Do not assume
   permission to redistribute the code or bundled source metadata without the
   appropriate APCTT and source-provider review.
-- Dependency alerting and operational rate-limit monitoring are not yet
-  configured in this repository.
+- Production availability checks cover the API health, source registry and
+  facet endpoint, but do not replace provider-specific monitoring.
+
+The IP Australia adapter remains in the repository for reference but is not
+registered as an active source. General patent-search records are intentionally
+excluded because APTG is focused on technologies presented for transfer,
+licensing or cooperation.
