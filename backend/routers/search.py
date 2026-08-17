@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 # Bump whenever the registered source set or response semantics change so
 # searches cached before a catalogue addition cannot hide the new records.
-SEARCH_CACHE_SCHEMA_VERSION = 8
+SEARCH_CACHE_SCHEMA_VERSION = 9
 
 
 def _cache_key(params: dict) -> str:

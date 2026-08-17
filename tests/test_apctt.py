@@ -62,12 +62,11 @@ class APCTTTaxonomyTests(unittest.TestCase):
 
 
 class APCTTSourceTests(unittest.IsolatedAsyncioTestCase):
-    async def test_default_bundled_snapshot_is_valid(self):
+    async def test_default_bundled_snapshot_contains_no_test_records(self):
         source = APCTTSource()
         records = source._load_fallback_records()
 
-        self.assertEqual(len(records), 1)
-        self.assertEqual(records[0]["id"], "apctt_948")
+        self.assertEqual(records, [])
 
     async def test_repeated_drupal_page_is_deduplicated(self):
         source = APCTTSource()
