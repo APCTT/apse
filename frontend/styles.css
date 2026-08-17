@@ -2841,16 +2841,89 @@ body.source-dialog-open {
   gap: 10px 22px;
 }
 
-.gateway-legal-footer a {
+.gateway-legal-footer a,
+.gateway-legal-footer .footer-privacy-button {
   color: var(--white);
   font-size: 12px;
   font-weight: 600;
   text-decoration: none;
 }
 
-.gateway-legal-footer a:hover {
+.gateway-legal-footer .footer-privacy-button {
+  padding: 0;
+  border: 0;
+  color: var(--white);
+  background: transparent;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.gateway-legal-footer a:hover,
+.gateway-legal-footer .footer-privacy-button:hover {
   text-decoration: underline;
   text-underline-offset: 3px;
+}
+
+.analytics-consent-banner {
+  --blue-900: #153b72;
+  --blue-700: #337ab7;
+  --ink: #212529;
+  --muted: #596674;
+  --white: #fff;
+  position: fixed;
+  z-index: 3000;
+  right: 20px;
+  bottom: 20px;
+  left: 20px;
+  display: flex;
+  width: min(940px, calc(100% - 40px));
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  margin: 0 auto;
+  padding: 18px 20px;
+  border: 1px solid #b9cfdd;
+  border-radius: 8px;
+  color: var(--ink);
+  background: var(--white);
+  box-shadow: 0 16px 45px rgb(8 38 60 / 24%);
+}
+
+.analytics-consent-copy {
+  max-width: 650px;
+}
+
+.analytics-consent-copy strong {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--blue-900);
+  font-family: "Manrope", "Roboto", sans-serif;
+  font-size: 15px;
+}
+
+.analytics-consent-copy p {
+  margin: 0 0 5px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.analytics-consent-copy a {
+  color: var(--blue-700);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.analytics-consent-actions {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 8px;
+}
+
+.analytics-consent-actions .button {
+  min-height: 38px;
+  padding: 9px 14px;
+  white-space: nowrap;
 }
 
 .gateway-external-link-note {
@@ -3037,6 +3110,22 @@ body.source-dialog-open {
 }
 
 @media (max-width: 720px) {
+  .analytics-consent-banner {
+    right: 12px;
+    bottom: 12px;
+    left: 12px;
+    width: calc(100% - 24px);
+    align-items: stretch;
+    flex-direction: column;
+    gap: 14px;
+    padding: 16px;
+  }
+
+  .analytics-consent-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+
   .gateway-legal-footer-inner {
     flex-direction: column;
   }

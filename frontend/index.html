@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'self'; base-uri 'self'; object-src 'none'; form-action 'self'; img-src 'self' data: https:; font-src 'self' data: https://fonts.gstatic.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; script-src 'self'; connect-src 'self' http://127.0.0.1:8000 https://apsei-api.onrender.com https://translate.googleapis.com; frame-src 'none';"
+      content="default-src 'self'; base-uri 'self'; object-src 'none'; form-action 'self'; img-src 'self' data: https:; font-src 'self' data: https://fonts.gstatic.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; script-src 'self' https://www.googletagmanager.com; connect-src 'self' http://127.0.0.1:8000 https://apsei-api.onrender.com https://translate.googleapis.com https://www.googletagmanager.com https://*.google-analytics.com; frame-src 'none';"
     />
     <meta
       name="description"
@@ -19,7 +19,7 @@
       href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@600;700;800&family=Roboto:wght@400;500;700&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="styles.css?v=22" />
+    <link rel="stylesheet" href="styles.css?v=23" />
     <link
       id="apctt-theme"
       rel="stylesheet"
@@ -365,6 +365,7 @@
           <nav aria-label="Legal information">
             <a href="terms-of-use.html">Terms of Use</a>
             <a href="privacy-notice.html">Privacy Notice</a>
+            <button type="button" class="footer-privacy-button" data-analytics-preferences>Analytics preferences</button>
             <a href="https://apctt.org/form/contact-us" target="_blank" rel="noopener noreferrer">Contact APCTT</a>
           </nav>
         </div>
@@ -390,6 +391,7 @@
 
     <script src="merged-pagination.js?v=1" defer></script>
     <script src="security-utils.js?v=1" defer></script>
-    <script src="app.js?v=31" defer></script>
+    <script src="analytics.js?v=1" defer></script>
+    <script src="app.js?v=32" defer></script>
   </body>
 </html>

@@ -131,7 +131,7 @@ requirements and run:
 ```sh
 python -m pip install -r requirements-dev.txt
 python -m pytest -q
-node --test tests/frontend-security.test.js tests/merged-pagination.test.js
+node --test tests/frontend-security.test.js tests/frontend-analytics.test.js tests/merged-pagination.test.js
 python scripts/validate_crawled_data.py
 python -m pip_audit -r backend/requirements.txt
 ```

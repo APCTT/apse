@@ -28,7 +28,7 @@ jobs:
       - name: Run backend tests
         run: python -m pytest -q
       - name: Run frontend tests
-        run: node --test tests/frontend-security.test.js tests/merged-pagination.test.js
+        run: node --test tests/frontend-security.test.js tests/frontend-analytics.test.js tests/merged-pagination.test.js
       - name: Validate reviewed catalogue snapshots
         run: python scripts/validate_crawled_data.py
       - name: Audit backend dependencies

@@ -71,6 +71,40 @@ const els = {
   app: document.querySelector(".apse"),
 };
 
+const analytics = globalThis.AptgAnalytics;
+
+function analyticsFilterCounts() {
+  return {
+    countries: state.countries.length,
+    sectors: state.sectors.length,
+    sources: state.sources.length,
+    databaseTypes: state.databaseTypes.length,
+  };
+}
+
+function trackSearchAnalytics(query, origin) {
+  analytics?.trackSearch(query, origin, analyticsFilterCounts());
+}
+
+const analyticsFilterTypes = {
+  countries: "country",
+  sectors: "sector",
+  sources: "source",
+  databaseTypes: "database_type",
+};
+
+function trackFilterAnalytics(filterType, previous, next) {
+  const analyticsType = analyticsFilterTypes[filterType] || filterType;
+  const before = new Set(previous);
+  const after = new Set(next);
+  next.filter((value) => !before.has(value)).forEach((value) => {
+    analytics?.trackFilter(analyticsType, "add", value, next.length);
+  });
+  previous.filter((value) => !after.has(value)).forEach((value) => {
+    analytics?.trackFilter(analyticsType, "remove", value, next.length);
+  });
+}
+
 // ── Facet filter groups ──────────────────────────────────────────────────────
 
 const multiselectInstances = [];
@@ -278,7 +312,7 @@ function technologyCard(technology, source) {
     </div>` : "";
 
   return `
-    <article class="technology-card" data-tech-id="${escapeHtml(technology.id)}" ${needsTranslation ? 'data-needs-translation="true"' : ""}>
+    <article class="technology-card" data-tech-id="${escapeHtml(technology.id)}" data-source-id="${escapeHtml(source.id)}" ${needsTranslation ? 'data-needs-translation="true"' : ""}>
       <div class="card-top-row">
         <div class="card-context">
           <span class="card-sector">${sectorDisplay}</span>
@@ -295,8 +329,8 @@ function technologyCard(technology, source) {
             <div class="card-detail-panel">${detailRows}${jstContactDetails}</div>
           </details>` : "<span></span>"}
         <div class="card-actions">
-          ${jstLinks ? `<a class="button button-secondary card-contact-link" href="${escapeHtml(jstLinks.inquiryUrl)}">Contact JST about licensing</a>` : ""}
-          ${url ? `<a class="button button-primary card-external-link" href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">${jstLinks ? jstLinks.destinationLabel : "View original source ↗"}</a>` : ""}
+          ${jstLinks ? `<a class="button button-secondary card-contact-link" data-analytics-outbound="licensing_inquiry" data-analytics-source="jst_japan" href="${escapeHtml(jstLinks.inquiryUrl)}">Contact JST about licensing</a>` : ""}
+          ${url ? `<a class="button button-primary card-external-link" data-analytics-outbound="technology_record" data-analytics-source="${escapeHtml(source.id)}" href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">${jstLinks ? jstLinks.destinationLabel : "View original source ↗"}</a>` : ""}
         </div>
       </div>
     </article>
@@ -398,6 +432,8 @@ function redirectSourceBlock(source) {
               <span class="redirect-card-organisation">${escapeHtml(card.org)}</span>
               <div class="card-actions">
                 ${redirectUrl ? `<a class="button button-primary card-external-link"
+                   data-analytics-outbound="external_search"
+                   data-analytics-source="${sourceId}"
                    href="${escapeHtml(redirectUrl)}"
                    target="_blank" rel="noopener noreferrer">
                   Search on ${sourceName}&nbsp; →
@@ -778,7 +814,9 @@ function renderSourceChips() {
       // second one switches to it rather than adding to a combo, matching
       // how a source directory is browsed. Real multi-select combos are
       // still available via the Source platform dropdown filter.
-      state.sources = state.sources.includes(id) ? [] : [id];
+      const nextSources = state.sources.includes(id) ? [] : [id];
+      trackFilterAnalytics("source", state.sources, nextSources);
+      state.sources = nextSources;
       state.mergedPage = 1;
       els.sourceMs._render?.();
       renderResults();
@@ -980,6 +1018,7 @@ async function renderResults() {
 
 async function changeMergedPage(page) {
   state.mergedPage = page;
+  analytics?.trackPagination(page);
   await renderResults();
   document.querySelector("#search-results").scrollIntoView({ behavior: "smooth", block: "start" });
 }
@@ -1120,7 +1159,7 @@ function sourceDetailCard(source, representedCount) {
 
       <div class="sdc-actions">
         ${isRedirect && sourceUrl
-          ? `<a class="button button-primary" href="${escapeHtml(sourceUrl)}" target="_blank" rel="noopener noreferrer">Search original database ↗</a>`
+          ? `<a class="button button-primary" data-analytics-outbound="external_search" data-analytics-source="${sourceId}" href="${escapeHtml(sourceUrl)}" target="_blank" rel="noopener noreferrer">Search original database ↗</a>`
           : `<button class="button button-primary sdc-search-btn" data-source-search="${sourceId}">Search this source</button>`}
         <button class="button button-secondary" data-source-details="${sourceId}">Source details</button>
       </div>
@@ -1165,6 +1204,7 @@ async function renderSourcesTable() {
       countryOptions,
       () => state.countries,
       (next) => {
+        trackFilterAnalytics("country", state.countries, next);
         state.countries = next;
         state.mergedPage = 1;
         scheduleFilterRender();
@@ -1176,6 +1216,7 @@ async function renderSourcesTable() {
       sectorOptions,
       () => state.sectors,
       (next) => {
+        trackFilterAnalytics("sector", state.sectors, next);
         state.sectors = next;
         state.mergedPage = 1;
         scheduleFilterRender();
@@ -1187,6 +1228,7 @@ async function renderSourcesTable() {
       databaseTypeOptions,
       () => state.databaseTypes,
       (next) => {
+        trackFilterAnalytics("database_type", state.databaseTypes, next);
         state.databaseTypes = next;
         state.mergedPage = 1;
         scheduleFilterRender();
@@ -1198,6 +1240,7 @@ async function renderSourcesTable() {
       sourceOptions,
       () => state.sources,
       (next) => {
+        trackFilterAnalytics("source", state.sources, next);
         state.sources = next;
         state.mergedPage = 1;
         scheduleFilterRender();
@@ -1254,6 +1297,7 @@ function runSearch(query) {
 }
 
 function selectOnlySource(sourceId) {
+  trackFilterAnalytics("source", state.sources, [sourceId]);
   state.sources = [sourceId];
   els.sourceMs._render?.();
   runSearch(state.query || "");
@@ -1264,6 +1308,7 @@ window.selectOnlySource = selectOnlySource;
 els.form.addEventListener("submit", (event) => {
   event.preventDefault();
   recordTrackedTopicSearch(els.input.value);
+  trackSearchAnalytics(els.input.value, "search_form");
   runSearch(els.input.value);
 });
 
@@ -1271,6 +1316,7 @@ document.querySelector("#popular-chips").addEventListener("click", (event) => {
   const chip = event.target.closest("[data-keyword]");
   if (chip) {
     recordTrackedTopicSearch(chip.dataset.keyword);
+    trackSearchAnalytics(chip.dataset.keyword, "suggested_topic");
     runSearch(chip.dataset.keyword);
   }
 });
@@ -1296,7 +1342,9 @@ els.activeFilters?.addEventListener("click", (event) => {
     state.query = "";
     els.input.value = "";
   } else if (Array.isArray(state[filterType])) {
-    state[filterType] = state[filterType].filter((value) => value !== filterValue);
+    const next = state[filterType].filter((value) => value !== filterValue);
+    trackFilterAnalytics(filterType, state[filterType], next);
+    state[filterType] = next;
   }
   state.mergedPage = 1;
   cancelScheduledFilterRender();
@@ -1344,6 +1392,15 @@ document.querySelector(".results-view-toggle")?.addEventListener("click", (event
   });
   document.querySelector(".technology-list")?.classList.remove("view-list", "view-grid");
   document.querySelector(".technology-list")?.classList.add(`view-${state.resultsView}`);
+});
+
+document.addEventListener("click", (event) => {
+  const outbound = event.target.closest("[data-analytics-outbound]");
+  if (!outbound) return;
+  analytics?.trackOutbound(
+    outbound.dataset.analyticsOutbound,
+    outbound.dataset.analyticsSource
+  );
 });
 
 // ── App view switching (Search vs Sources) ───────────────────────────────────
@@ -1430,7 +1487,7 @@ function openSourcePage(sourceId, { pushHistory = true } = {}) {
         : `<button class="button button-primary" type="button" data-source-search-and-close="${safeSourceId}">
           Search ${safeSourceName}
         </button>`}
-      ${safeSourceUrl ? `<a class="button ${isRedirect ? "button-primary" : "button-secondary"}" href="${escapeHtml(safeSourceUrl)}" target="_blank" rel="noopener noreferrer">
+      ${safeSourceUrl ? `<a class="button ${isRedirect ? "button-primary" : "button-secondary"}" data-analytics-outbound="source_homepage" data-analytics-source="${safeSourceId}" href="${escapeHtml(safeSourceUrl)}" target="_blank" rel="noopener noreferrer">
         Visit official site ↗
       </a>` : ""}
     </div>
