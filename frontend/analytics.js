@@ -150,13 +150,13 @@
     banner.setAttribute("aria-labelledby", "analytics-consent-title");
     banner.innerHTML = `
       <div class="analytics-consent-copy">
-        <strong id="analytics-consent-title">Optional usage analytics</strong>
-        <p>With your permission, APTG uses Google Analytics to understand aggregate use and improve the service. Advertising features are disabled, and free-text searches are not sent to Google.</p>
-        <a href="privacy-notice.html#cookies">Read the Privacy Notice</a>
+        <strong id="analytics-consent-title">Optional analytics cookies</strong>
+        <p>We use optional analytics cookies to understand how the Gateway is used and improve the service. No advertising cookies are used.</p>
+        <a href="privacy-notice.html#cookies">Analytics details</a>
       </div>
       <div class="analytics-consent-actions">
         <button type="button" class="button button-secondary" data-analytics-choice="denied">Decline</button>
-        <button type="button" class="button button-primary" data-analytics-choice="granted">Allow analytics</button>
+        <button type="button" class="button button-primary" data-analytics-choice="granted">Accept analytics</button>
       </div>`;
     banner.addEventListener("click", (event) => {
       const button = event.target.closest("[data-analytics-choice]");
