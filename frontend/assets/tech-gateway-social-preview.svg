@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img" aria-labelledby="title desc">
+  <title id="title">Asia-Pacific Tech Gateway</title>
+  <desc id="desc">Discover technology offers across Asia and the Pacific.</desc>
+  <defs>
+    <linearGradient id="background" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#081f34" />
+      <stop offset="1" stop-color="#123f62" />
+    </linearGradient>
+    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#19a7e0" />
+      <stop offset="1" stop-color="#7dd7f7" />
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="630" fill="url(#background)" />
+  <rect width="1200" height="10" fill="url(#accent)" />
+  <g opacity="0.18" fill="none" stroke="#7dd7f7" stroke-width="3">
+    <path d="M795 120L950 210L1100 105" />
+    <path d="M825 405L980 300L1125 425" />
+    <path d="M950 210L980 300" />
+  </g>
+  <g fill="#7dd7f7" opacity="0.75">
+    <circle cx="795" cy="120" r="8" />
+    <circle cx="950" cy="210" r="8" />
+    <circle cx="1100" cy="105" r="8" />
+    <circle cx="825" cy="405" r="8" />
+    <circle cx="980" cy="300" r="8" />
+    <circle cx="1125" cy="425" r="8" />
+  </g>
+  <g transform="translate(90 105) scale(2.25)">
+    <rect width="64" height="64" rx="14" fill="#ffffff" />
+    <path d="M21 45V26C21 15.5 43 15.5 43 26V45" fill="none" stroke="#123f62" stroke-linecap="round" stroke-width="6" />
+    <path d="M12 47L52 21" fill="none" stroke="#19a7e0" stroke-linecap="round" stroke-width="4.5" />
+    <g fill="#19a7e0">
+      <circle cx="12" cy="47" r="4.5" />
+      <circle cx="32" cy="34" r="4.5" />
+      <circle cx="52" cy="21" r="4.5" />
+    </g>
+  </g>
+  <text x="290" y="145" fill="#7dd7f7" font-family="Arial, sans-serif" font-size="24" font-weight="700" letter-spacing="4">APTG</text>
+  <text x="290" y="220" fill="#ffffff" font-family="Arial, sans-serif" font-size="58" font-weight="700">Asia-Pacific</text>
+  <text x="290" y="290" fill="#ffffff" font-family="Arial, sans-serif" font-size="58" font-weight="700">Tech Gateway</text>
+  <rect x="90" y="365" width="720" height="2" fill="#19a7e0" />
+  <text x="90" y="425" fill="#d8e8f3" font-family="Arial, sans-serif" font-size="28">Discover technology offers across public source databases</text>
+  <text x="90" y="465" fill="#d8e8f3" font-family="Arial, sans-serif" font-size="28">in Asia and the Pacific.</text>
+  <text x="90" y="555" fill="#7dd7f7" font-family="Arial, sans-serif" font-size="24" font-weight="700">ap-tg.net</text>
+</svg>

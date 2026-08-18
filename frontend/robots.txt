@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://ap-tg.net/sitemap.xml
