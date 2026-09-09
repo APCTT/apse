@@ -75,7 +75,7 @@ themes so totals and pagination stay accurate.
 | NRDC India | India | Reviewed crawler snapshot stored as JSON |
 | ITI Technology Bank | Sri Lanka | Reviewed crawler snapshot stored as JSON |
 | Malaysia R&D Commercialisation Portal | Malaysia | Reviewed public-catalogue snapshot stored as JSON; contact fields omitted |
-| APCTT Technology Offers | Asia and the Pacific | Public Drupal REST Export with a bundled fallback snapshot |
+| APCTT Technology Offers | Asia and the Pacific | Reviewed public-catalogue snapshot stored as JSON; contact fields omitted |
 
 Source websites remain authoritative. Crawled snapshots can lag behind their
 providers and should be refreshed and reviewed before release. See
@@ -177,6 +177,11 @@ KOREA_NTB_BASE_URL=https://apis.data.go.kr/B552536/tech_4/techall
 KOREA_NTB_TTL_SECONDS=86400
 CACHE_TTL_SECONDS=86400
 
+# Default: reviewed local snapshot. Change to live only after APCTT reopens
+# access from the Render backend; switch back without changing code.
+APCTT_SOURCE_MODE=snapshot
+APCTT_API_URL=https://www.apctt.org/api/technology-offers
+
 GEMINI_API_KEY=your_google_ai_studio_key
 GEMINI_RELATED_TERMS_MODEL=gemini-3.5-flash-lite
 SEMANTIC_SEARCH_ENABLED=true
@@ -271,9 +276,14 @@ pagination have been verified. Do not force uncertain classifications.
 
 Korea NTB uses `backend/taxonomy/data/ntb_to_ics.csv` to map native technology
 codes to ISO ICS. APCTT uses verified Drupal country and sector TIDs in
-`backend/taxonomy/apctt_taxonomy.py`. Its public REST Export is
-`https://www.apctt.org/api/technology-offers?_format=json`; live failures fall
-back to `backend/sources/data/apctt_fallback.json`.
+`backend/taxonomy/apctt_taxonomy.py`. `scripts/crawl_apctt.py` collects its
+public catalogue outside Render, removes contact fields, and writes a reviewed
+snapshot to `backend/sources/data/apctt.json`. User searches never call the
+APCTT website directly in the default configuration. The original live mode is
+retained: set `APCTT_SOURCE_MODE=live` in the backend environment and restart
+or redeploy the service. Live mode automatically falls back to the reviewed
+snapshot if the upstream request fails; set it back to `snapshot` to disable
+all request-time APCTT calls.
 
 ## Known limitations
 

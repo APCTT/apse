@@ -53,6 +53,30 @@ class StaticJSONSource(BaseSource):
         self._records: list[dict] = []
         self._loaded = False
 
+    def _record_countries(self, rec: dict) -> tuple[str, ...]:
+        """Return per-record countries when a regional snapshot provides them."""
+        values = rec.get("countries")
+        if isinstance(values, list):
+            countries = tuple(
+                dict.fromkeys(
+                    value.strip()
+                    for value in values
+                    if isinstance(value, str) and value.strip()
+                )
+            )
+            if countries:
+                return countries
+        value = str(rec.get("country", "")).strip()
+        return (value,) if value else (self.country,)
+
+    @staticmethod
+    def _search_record(rec: dict) -> dict:
+        """Use optional discovery-only text without expanding the result card."""
+        search_text = str(rec.get("search_text", "")).strip()
+        if not search_text:
+            return rec
+        return {**rec, "summary": search_text}
+
     def _load(self):
         if self._loaded:
             return
@@ -61,101 +85,104 @@ class StaticJSONSource(BaseSource):
             self._records = []
         else:
             with open(self._data_path, encoding=self.encoding) as f:
-                self._records = json.load(f)
-            for rec in self._records:
-                source_sector = rec.get("sector", "")
-                explicit_codes = tuple(
-                    dict.fromkeys(
-                        str(code).strip()
-                        for code in (rec.get("sector_codes") or [])
-                        if str(code).strip() in ICS_LABELS
-                    )
-                )
-                explicit_code = str(rec.get("sector_code", "")).strip()
-                if explicit_codes:
-                    confidence = str(
-                        rec.get("classification_confidence", "high")
-                    ).strip()
-                    if confidence not in {"high", "medium", "low"}:
-                        confidence = "low"
-                    classification = SectorClassification(
-                        source_sector=source_sector,
-                        codes=explicit_codes,
-                        labels=tuple(
-                            ICS_LABELS[code]
-                            for code in explicit_codes
-                        ),
-                        method=str(
-                            rec.get("classification_method", "indexed_sector_codes")
-                        ),
-                        confidence=confidence,
-                    )
-                elif explicit_code in ICS_TOP_LEVEL_LABELS:
-                    confidence = str(
-                        rec.get("classification_confidence", "high")
-                    ).strip()
-                    if confidence not in {"high", "medium", "low"}:
-                        confidence = "low"
-                    classification = SectorClassification(
-                        source_sector=source_sector,
-                        codes=(explicit_code,),
-                        labels=(ICS_TOP_LEVEL_LABELS[explicit_code],),
-                        method=str(
-                            rec.get("classification_method", "indexed_sector_code")
-                        ),
-                        confidence=confidence,
-                    )
-                elif explicit_code == OTHER_SECTOR_CODE:
-                    classification = SectorClassification(
-                        source_sector=source_sector or OTHER_SECTOR_LABEL,
-                        codes=(),
-                        labels=(),
-                        method=str(
-                            rec.get("classification_method", "indexed_unclassified")
-                        ),
-                        confidence="low",
-                    )
-                else:
-                    classification = classify_sector(
-                        source_sector,
-                        title=rec.get("title", ""),
-                        summary=rec.get("summary", ""),
-                        keywords=rec.get("keywords", []),
-                    )
-                if self.sector_provenance == "legacy_keyword" and not explicit_code:
-                    content_classification = classify_sector(
-                        "",
-                        title=rec.get("title", ""),
-                        summary=rec.get("summary", ""),
-                        keywords=rec.get("keywords", []),
-                    )
-                    if content_classification.codes:
-                        classification = replace(
-                            content_classification,
-                            source_sector=source_sector,
-                            method="legacy_content_classification",
-                            confidence="low",
-                        )
-                    elif classification.codes:
-                        classification = replace(
-                            classification,
-                            method="legacy_keyword_mapping",
-                            confidence="low",
-                        )
-                rec["_sector_classification"] = classification
+                records = json.load(f)
+            self._prepare_records(records)
             logger.info("%s: loaded %d records from %s", self.id, len(self._records), self._data_path)
         self._loaded = True
 
+    def _prepare_records(self, records: list[dict]) -> None:
+        """Hydrate snapshot records for either disk or live compatibility mode."""
+        self._records = records
+        for rec in self._records:
+            source_sector = rec.get("sector", "")
+            explicit_codes = tuple(
+                dict.fromkeys(
+                    str(code).strip()
+                    for code in (rec.get("sector_codes") or [])
+                    if str(code).strip() in ICS_LABELS
+                )
+            )
+            explicit_code = str(rec.get("sector_code", "")).strip()
+            if explicit_codes:
+                confidence = str(
+                    rec.get("classification_confidence", "high")
+                ).strip()
+                if confidence not in {"high", "medium", "low"}:
+                    confidence = "low"
+                classification = SectorClassification(
+                    source_sector=source_sector,
+                    codes=explicit_codes,
+                    labels=tuple(ICS_LABELS[code] for code in explicit_codes),
+                    method=str(
+                        rec.get("classification_method", "indexed_sector_codes")
+                    ),
+                    confidence=confidence,
+                )
+            elif explicit_code in ICS_TOP_LEVEL_LABELS:
+                confidence = str(
+                    rec.get("classification_confidence", "high")
+                ).strip()
+                if confidence not in {"high", "medium", "low"}:
+                    confidence = "low"
+                classification = SectorClassification(
+                    source_sector=source_sector,
+                    codes=(explicit_code,),
+                    labels=(ICS_TOP_LEVEL_LABELS[explicit_code],),
+                    method=str(
+                        rec.get("classification_method", "indexed_sector_code")
+                    ),
+                    confidence=confidence,
+                )
+            elif explicit_code == OTHER_SECTOR_CODE:
+                classification = SectorClassification(
+                    source_sector=source_sector or OTHER_SECTOR_LABEL,
+                    codes=(),
+                    labels=(),
+                    method=str(
+                        rec.get("classification_method", "indexed_unclassified")
+                    ),
+                    confidence="low",
+                )
+            else:
+                classification = classify_sector(
+                    source_sector,
+                    title=rec.get("title", ""),
+                    summary=rec.get("summary", ""),
+                    keywords=rec.get("keywords", []),
+                )
+            if self.sector_provenance == "legacy_keyword" and not explicit_code:
+                content_classification = classify_sector(
+                    "",
+                    title=rec.get("title", ""),
+                    summary=rec.get("summary", ""),
+                    keywords=rec.get("keywords", []),
+                )
+                if content_classification.codes:
+                    classification = replace(
+                        content_classification,
+                        source_sector=source_sector,
+                        method="legacy_content_classification",
+                        confidence="low",
+                    )
+                elif classification.codes:
+                    classification = replace(
+                        classification,
+                        method="legacy_keyword_mapping",
+                        confidence="low",
+                    )
+            rec["_sector_classification"] = classification
+
     def _to_technology(self, rec: dict) -> Technology:
         classification = rec["_sector_classification"]
+        countries = self._record_countries(rec)
         return Technology(
             id=rec["id"],
             title=rec["title"],
             summary=rec.get("summary", ""),
             sector=classification.primary_label,
-            language=self.language,
+            language=rec.get("language") or self.language,
             keywords=rec.get("keywords", []),
-            country=self.country,
+            country=", ".join(countries),
             source_id=self.id,
             source_name=self.name,
             url=rec["url"],
@@ -163,7 +190,7 @@ class StaticJSONSource(BaseSource):
             org_name=rec.get("institute") or self.org_default,
             transfer_type=self.transfer_type,
             dev_status=rec.get("trl", ""),
-            reg_date="",
+            reg_date=rec.get("reg_date", ""),
             sub_sector="",
             source_sector=classification.source_sector,
             sector_codes=list(classification.codes),
@@ -187,23 +214,33 @@ class StaticJSONSource(BaseSource):
         focus_theme = filters.get("_focus_theme")
         if not isinstance(focus_theme, FocusTheme):
             focus_theme = None
+        selected_countries = {
+            value.strip()
+            for value in (filters.get("country") or "").split(",")
+            if value.strip()
+        }
 
         matched: list[tuple[dict, float, int]] = []
         semantic_evidence: list[tuple[dict, float]] = []
         for rec in self._records:
+            if selected_countries and not selected_countries.intersection(
+                self._record_countries(rec)
+            ):
+                continue
             classification = rec["_sector_classification"]
             if not matches_sector_filter(classification, sector_filters):
                 continue
             focus_score = 0
+            search_record = self._search_record(rec)
             if focus_theme:
                 focus_match, focus_score = score_focus_record(
-                    rec, classification, focus_theme
+                    search_record, classification, focus_theme
                 )
                 if not focus_match:
                     continue
             if q:
                 is_match, score, semantic_score = semantic_search.score_record(
-                    rec,
+                    search_record,
                     semantic_context,
                     self.id,
                 )
@@ -211,7 +248,7 @@ class StaticJSONSource(BaseSource):
                     continue
                 matched.append((rec, score, focus_score))
                 if semantic_score:
-                    semantic_evidence.append((rec, semantic_score))
+                    semantic_evidence.append((search_record, semantic_score))
             else:
                 matched.append((rec, 0.0, focus_score))
 
@@ -251,18 +288,19 @@ class StaticJSONSource(BaseSource):
     def facet_records(self):
         self._load()
         for rec in self._records:
+            search_record = self._search_record(rec)
             yield {
                 "id": str(rec.get("id", "")),
-                "record": rec,
-                "searchable": searchable_text(rec).lower(),
+                "record": search_record,
+                "searchable": searchable_text(search_record).lower(),
                 "classification": rec["_sector_classification"],
-                "country": self.country,
+                "countries": self._record_countries(rec),
             }
 
     def semantic_records(self) -> list[dict]:
         """Return loaded public metadata for the offline index builder."""
         self._load()
-        return self._records
+        return [self._search_record(rec) for rec in self._records]
 
     def is_healthy(self) -> bool:
         return self._data_path.exists()

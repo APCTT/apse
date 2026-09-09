@@ -19,6 +19,7 @@ jobs:
           curl --fail --silent --show-error --retry 3 --retry-delay 5 https://apsei-api.onrender.com/api/v1/sources -o /tmp/sources.json
           curl --fail --silent --show-error --retry 3 --retry-delay 5 https://apsei-api.onrender.com/api/v1/facets -o /tmp/facets.json
           curl --fail --silent --show-error --retry 3 --retry-delay 5 'https://apsei-api.onrender.com/api/v1/search?source=csir_india' -o /tmp/search.json
+          curl --fail --silent --show-error --retry 3 --retry-delay 5 'https://apsei-api.onrender.com/api/v1/search?source=apctt' -o /tmp/apctt.json
       - name: Verify production responses
         run: |
-          python -c "import json; h=json.load(open('/tmp/health.json')); s=json.load(open('/tmp/sources.json')); f=json.load(open('/tmp/facets.json')); r=json.load(open('/tmp/search.json')); assert h.get('status') == 'ok'; ids={x['id'] for x in s}; assert 'ip_australia' not in ids; assert len(ids) >= 8; assert f.get('sources'); assert r.get('results'); print('healthy:', len(ids), 'sources,', len(r['results']), 'sample records')"
+          python -c "import json; h=json.load(open('/tmp/health.json')); s=json.load(open('/tmp/sources.json')); f=json.load(open('/tmp/facets.json')); r=json.load(open('/tmp/search.json')); a=json.load(open('/tmp/apctt.json')); assert h.get('status') == 'ok'; ids={x['id'] for x in s}; assert 'ip_australia' not in ids; assert len(ids) >= 8; assert f.get('sources'); assert r.get('results'); assert a.get('results') and not a.get('failed_sources'); print('healthy:', len(ids), 'sources,', len(r['results']), 'sample records,', len(a['results']), 'APCTT records')"

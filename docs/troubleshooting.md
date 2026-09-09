@@ -34,10 +34,18 @@ The source chip row is intentionally single-select: selecting a chip replaces
 the previous chip selection. The full source filter supports multiple values.
 Keep these interaction models distinct when modifying filter behavior.
 
-## APCTT live catalogue is unavailable
+## APCTT catalogue appears stale
 
-The APCTT Drupal export can return HTTP 403 to some cloud-hosting egress ranges.
-The integration serves the last reviewed bundled fallback snapshot and retries
-the live catalogue later. Check backend logs and the age of
-`backend/sources/data/apctt_fallback.json` before treating an empty or stale
-response as an application parsing failure.
+APCTT blocks Render's shared outbound network, so the production search API
+does not contact the APCTT website during user requests. It reads the last
+reviewed `backend/sources/data/apctt.json` snapshot instead. Run
+`python scripts/crawl_apctt.py`, review the staging diff, and use the explicit
+production replacement command in `docs/crawling.md` before deploying an
+update. A stale result is therefore an indexing-date issue, not a live API
+failure.
+
+If APCTT later allows the Render backend to access the export, set
+`APCTT_SOURCE_MODE=live` in the backend service environment and redeploy. Live
+mode falls back to the committed snapshot when upstream loading fails. Restore
+`APCTT_SOURCE_MODE=snapshot` to stop request-time calls again; no source or
+frontend code changes are required.

@@ -1,4 +1,5 @@
 from pydantic_settings import BaseSettings
+from typing import Literal
 
 
 class Settings(BaseSettings):
@@ -7,6 +8,10 @@ class Settings(BaseSettings):
     KOREA_NTB_TTL_SECONDS: int = 86400
     CACHE_TTL_SECONDS: int = 86400
     CACHE_MAX_ENTRIES: int = 500
+    # Keep snapshot mode until APCTT permits Render access. Set to "live" to
+    # restore the original Drupal API integration with snapshot fallback.
+    APCTT_SOURCE_MODE: Literal["snapshot", "live"] = "snapshot"
+    APCTT_API_URL: str = "https://www.apctt.org/api/technology-offers"
     IP_AUSTRALIA_CLIENT_ID: str = ""
     IP_AUSTRALIA_CLIENT_SECRET: str = ""
     JPO_API_USERNAME: str = ""

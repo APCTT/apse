@@ -43,7 +43,7 @@ async def get_facets(
     current query and selections from the other groups, but not its own
     selection. This keeps alternative values useful while filters are active.
     Live APIs are not called for counts unless a source explicitly provides a
-    bounded, cached catalogue preparation step (currently APCTT only).
+    bounded, cached catalogue preparation step.
     """
     preparable = [source for source in SOURCES if source.requires_facet_preparation]
     preparation_results = await asyncio.gather(

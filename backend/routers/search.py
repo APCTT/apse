@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 # Bump whenever the registered source set or response semantics change so
 # searches cached before a catalogue addition cannot hide the new records.
-SEARCH_CACHE_SCHEMA_VERSION = 10
+SEARCH_CACHE_SCHEMA_VERSION = 11
 
 
 def _cache_key(params: dict) -> str:
@@ -94,8 +94,9 @@ async def search(
     if query:
         filters["_semantic_context"] = await semantic_search.prepare_query(query)
 
-    # NTB API (Korean govt) takes 12-18s from Render's US servers — needs extra budget
-    SOURCE_TIMEOUTS = {"korea_ntb": 25.0, "apctt": 15.0}
+    # NTB can be slow from Render. APCTT snapshot mode returns immediately;
+    # its extra budget preserves the opt-in live compatibility mode.
+    SOURCE_TIMEOUTS = {"korea_ntb": 25.0, "apctt": 25.0}
 
     async def safe_search(src):
         timeout = SOURCE_TIMEOUTS.get(src.id, 10.0)

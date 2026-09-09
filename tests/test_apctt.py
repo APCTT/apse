@@ -4,46 +4,12 @@ import unittest
 from pathlib import Path
 from unittest.mock import AsyncMock
 
-from backend.sources.apctt import APCTTSource
+from backend.sources.apctt import APCTTLiveSource, APCTTSource, create_apctt_source
 from backend.taxonomy.apctt_taxonomy import (
     APCTT_COUNTRY_TID_TO_NAME,
     APCTT_SECTOR_TID_TO_ICS,
 )
 from backend.taxonomy.iso_ics import ICS_TOP_LEVEL_LABELS, OTHER_SECTOR_CODE
-
-
-def api_record(
-    *,
-    nid=948,
-    country_tid=124,
-    sector_tid=298,
-    title="Solar-Powered Cold Storage",
-):
-    return {
-        "nid": [{"value": nid}],
-        "status": [{"value": True}],
-        "langcode": [{"value": "en"}],
-        "title": [{"value": title}],
-        "created": [{"value": "2026-08-05T05:42:59+00:00"}],
-        "path": [{"alias": None}],
-        "body": [{"value": "Detailed solar cold-room description."}],
-        "field_web_resource_description_": [
-            {"value": "Off-grid refrigeration for agricultural produce."}
-        ],
-        "field_areas_of_application": [{"value": "Farmer cooperatives."}],
-        "field_benefits_advantages": [{"value": "Reduces food loss."}],
-        "field_cooperation_sought": [{"value": "Pilot partners."}],
-        "field_country": [{"target_id": country_tid}],
-        "field_page_sectors": [{"target_id": sector_tid}],
-        "field_keywords_maximum_5_": [
-            {"value": "solar power"},
-            {"value": "cold storage"},
-        ],
-        "field_name_of_organization": [{"value": "Example Institute"}],
-        "field_technology_readiness_level": [
-            {"value": "trl_8_system_complete_and_qualified"}
-        ],
-    }
 
 
 class APCTTTaxonomyTests(unittest.TestCase):
@@ -62,92 +28,128 @@ class APCTTTaxonomyTests(unittest.TestCase):
 
 
 class APCTTSourceTests(unittest.IsolatedAsyncioTestCase):
-    async def test_default_bundled_snapshot_contains_no_test_records(self):
+    @staticmethod
+    def _live_record():
+        return {
+            "nid": [{"value": 948}],
+            "status": [{"value": True}],
+            "langcode": [{"value": "en"}],
+            "title": [{"value": "Solar-Powered Cold Storage"}],
+            "created": [{"value": "2026-08-05T05:42:59+00:00"}],
+            "path": [{"alias": None}],
+            "field_web_resource_description_": [
+                {"value": "Off-grid refrigeration for agricultural produce."}
+            ],
+            "field_country": [{"target_id": 124}],
+            "field_page_sectors": [{"target_id": 278}],
+            "field_keywords_maximum_5_": [{"value": "cold storage"}],
+            "field_name_of_organization": [{"value": "Example Institute"}],
+        }
+
+    async def test_bundled_snapshot_is_searchable_without_live_api(self):
         source = APCTTSource()
-        records = source._load_fallback_records()
 
-        self.assertEqual(records, [])
+        items, total = await source.search(
+            "antiviral", {"page": 1, "country": "Thailand", "sector": "11"}
+        )
 
-    async def test_repeated_drupal_page_is_deduplicated(self):
+        self.assertGreaterEqual(total, 1)
+        self.assertEqual(items[0].source_id, "apctt")
+        self.assertEqual(items[0].country, "Thailand")
+        self.assertEqual(items[0].sector_codes, ["11"])
+        self.assertEqual(items[0].source_sector, "Health care technology")
+        self.assertTrue(items[0].url.startswith("https://www.apctt.org/node/"))
+
+    async def test_country_and_sector_filters_use_record_metadata(self):
         source = APCTTSource()
-        record = api_record()
-        source._request_page = AsyncMock(side_effect=[[record], [record]])
-
-        items, total = await source.search("", {"page": 1})
-
-        self.assertEqual(total, 1)
-        self.assertEqual(len(items), 1)
-        self.assertEqual(source._request_page.await_count, 2)
-        self.assertEqual(items[0].id, "apctt_948")
-        self.assertEqual(items[0].country, "India")
-        self.assertEqual(items[0].sector_codes, ["87"])
-        self.assertEqual(items[0].source_sector, "Paint and colour industries")
-        self.assertEqual(items[0].dev_status, "TRL 8 — System complete and qualified")
-        self.assertEqual(items[0].url, "https://www.apctt.org/node/948")
-
-    async def test_country_and_sector_filters_use_record_taxonomy(self):
-        source = APCTTSource()
-        source._request_page = AsyncMock(side_effect=[[api_record()], []])
 
         matching, matching_total = await source.search(
-            "solar", {"page": 1, "country": "India", "sector": "87"}
+            "antiviral", {"page": 1, "country": "Thailand", "sector": "11"}
         )
         wrong_country, wrong_country_total = await source.search(
-            "solar", {"page": 1, "country": "Thailand", "sector": "87"}
+            "antiviral", {"page": 1, "country": "India", "sector": "11"}
         )
         wrong_sector, wrong_sector_total = await source.search(
-            "solar", {"page": 1, "country": "India", "sector": "65"}
+            "antiviral", {"page": 1, "country": "Thailand", "sector": "65"}
         )
 
         self.assertEqual((len(matching), matching_total), (1, 1))
         self.assertEqual((wrong_country, wrong_country_total), ([], 0))
         self.assertEqual((wrong_sector, wrong_sector_total), ([], 0))
 
-    async def test_other_tid_remains_explicitly_unclassified(self):
-        source = APCTTSource()
-        source._request_page = AsyncMock(side_effect=[[api_record(sector_tid=291)], []])
-
-        items, total = await source.search("", {"page": 1, "sector": "other"})
-
-        self.assertEqual(total, 1)
-        self.assertEqual(items[0].sector_codes, [])
-        self.assertEqual(items[0].sector, "Other / Unclassified")
-
-    async def test_last_successful_catalogue_survives_brief_upstream_failure(self):
-        source = APCTTSource()
-        record = api_record()
-        source._request_page = AsyncMock(side_effect=[[record], [record]])
-        await source.search("", {"page": 1})
-
-        source._cache_expires_at = 0
-        source._request_page = AsyncMock(side_effect=RuntimeError("temporary outage"))
-        items, total = await source.search("", {"page": 1})
-
-        self.assertEqual(total, 1)
-        self.assertEqual(items[0].id, "apctt_948")
-
-    async def test_bundled_snapshot_is_used_on_initial_upstream_failure(self):
+    async def test_discovery_only_text_is_searchable_but_card_summary_stays_short(self):
+        record = {
+            "id": "apctt_1",
+            "title": "Compact title",
+            "summary": "Short public summary.",
+            "search_text": "Short public summary. Specialized pilot cooperation.",
+            "institute": "Example Institute",
+            "sector": "Other Technologies n.e.c.",
+            "sector_code": "other",
+            "classification_method": "apctt_taxonomy_tid",
+            "classification_confidence": "high",
+            "keywords": [],
+            "countries": ["India", "Thailand"],
+            "language": "en",
+            "reg_date": "2026-09-09",
+            "url": "https://www.apctt.org/node/1",
+        }
         with tempfile.TemporaryDirectory() as directory:
-            fallback = Path(directory) / "apctt.json"
-            fallback.write_text(json.dumps([api_record()]), encoding="utf-8")
-            source = APCTTSource(fallback_path=fallback)
-            source._request_page = AsyncMock(
-                side_effect=RuntimeError("render is blocked upstream")
+            path = Path(directory) / "apctt.json"
+            path.write_text(json.dumps([record]), encoding="utf-8")
+            source = APCTTSource()
+            source._data_path = path
+
+            items, total = await source.search(
+                "specialized", {"page": 1, "country": "India", "sector": "other"}
             )
 
-            items, total = await source.search("solar", {"page": 1})
+        self.assertEqual(total, 1)
+        self.assertEqual(items[0].summary, "Short public summary.")
+        self.assertEqual(items[0].country, "India, Thailand")
+        self.assertEqual(items[0].reg_date, "2026-09-09")
+
+    def test_snapshot_contains_no_contact_fields_or_dummy_records(self):
+        path = Path(__file__).parent.parent / "backend" / "sources" / "data" / "apctt.json"
+        records = json.loads(path.read_text(encoding="utf-8"))
+
+        self.assertGreaterEqual(len(records), 1)
+        serialized = json.dumps(records).lower()
+        self.assertNotIn("field_e_mail", serialized)
+        self.assertNotIn("dummy data for testing", serialized)
+
+    def test_source_is_reported_as_reviewed_snapshot(self):
+        source = APCTTSource()
+
+        self.assertEqual(source.access_method, "Reviewed APCTT catalogue snapshot")
+        self.assertTrue(source.facet_count_supported)
+        self.assertFalse(source.requires_facet_preparation)
+
+    def test_factory_preserves_snapshot_and_live_modes(self):
+        self.assertIs(type(create_apctt_source("snapshot")), APCTTSource)
+        self.assertIs(type(create_apctt_source("live")), APCTTLiveSource)
+
+    async def test_live_mode_loads_the_upstream_catalogue(self):
+        source = APCTTLiveSource()
+        source._request_page = AsyncMock(
+            side_effect=[[self._live_record()], []]
+        )
+
+        items, total = await source.search("cold storage", {"page": 1})
 
         self.assertEqual(total, 1)
-        self.assertEqual(items[0].id, "apctt_948")
-        self.assertGreater(source._cache_expires_at, 0)
+        self.assertEqual(items[0].country, "India")
+        self.assertEqual(items[0].sector_codes, ["67"])
+        self.assertEqual(source._request_page.await_count, 2)
 
-    async def test_initial_failure_is_not_hidden_without_a_valid_snapshot(self):
-        with tempfile.TemporaryDirectory() as directory:
-            source = APCTTSource(fallback_path=Path(directory) / "missing.json")
-            source._request_page = AsyncMock(side_effect=RuntimeError("outage"))
+    async def test_live_mode_falls_back_to_reviewed_snapshot(self):
+        source = APCTTLiveSource()
+        source._request_page = AsyncMock(side_effect=RuntimeError("blocked"))
 
-            with self.assertRaisesRegex(RuntimeError, "outage"):
-                await source.search("", {"page": 1})
+        items, total = await source.search("antiviral", {"page": 1})
+
+        self.assertGreaterEqual(total, 1)
+        self.assertEqual(items[0].source_id, "apctt")
 
 
 if __name__ == "__main__":

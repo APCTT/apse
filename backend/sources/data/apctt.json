@@ -1,0 +1,60 @@
+[
+  {
+    "id": "apctt_964",
+    "tech_id": "964",
+    "title": "Antiviral Pharmaceutical Composition Derived from Astraeus asiaticus Mushroom Extract",
+    "summary": "An aqueous extract of the edible mushroom Astraeus asiaticus showed in-vitro activity against HSV-1, HSV-2, EV71 and Coxsackievirus A16, plus synergistic activity with acyclovir in tested HSV strains, including acyclovir-resistant HSV-2.",
+    "search_text": "An aqueous extract of the edible mushroom Astraeus asiaticus showed in-vitro activity against HSV-1, HSV-2, EV71 and Coxsackievirus A16, plus synergistic activity with acyclovir in tested HSV strains, including acyclovir-resistant HSV-2. This technology concerns an antiviral pharmaceutical composition containing a polar or aqueous extract derived from Astraeus asiaticus, an edible mushroom found in Asia. In-vitro cell-based plaque reduction assays demonstrated antiviral activity against tested samples of Herpes Simplex Virus type 1 (HSV-1), Herpes Simplex Virus type 2 (HSV-2), Enterovirus 71 (EV71) and Coxsackievirus A16. The extract was evaluated at different stages of viral infection, including viral attachment, penetration and post-entry replication. Low cytotoxicity was observed in the tested Vero-cell model. Laboratory results also indicated synergistic antiviral activity when the extract was combined with acyclovir against tested HSV strains, including acyclovir-resistant HSV-2 samples. The technology is at an early development stage and has not undergone clinical testing or commercial deployment. Further work is required to standardize the extract, identify and characterize active compounds, confirm the mechanism of action, develop suitable formulations, and assess preclinical safety, efficacy, pharmacokinetics, dosage forms and manufacturing feasibility. The reported results are based solely on in-vitro laboratory studies and do not establish clinical safety or efficacy in humans. 1. Provides a natural-origin candidate for antiviral drug development. 2. Demonstrated in-vitro activity against HSV-1, HSV-2, EV71 and Coxsackievirus A16. 3. Demonstrated activity against both enveloped and non-enveloped viruses in laboratory studies. 4. Showed synergistic activity with acyclovir against tested HSV strains, including acyclovir-resistant HSV-2 samples. 5. Exhibited low cytotoxicity in the tested Vero-cell model. 6. Uses an aqueous extraction approach suitable for further process, formulation and preclinical development. 1. Antiviral pharmaceutical development 2. HSV-1 and HSV-2 research 3. Drug-resistant HSV research 4. Hand, foot and mouth disease drug research 5. Natural-product drug discovery 6. Antiviral combination-therapy research 7. Topical or oral formulation development Mahidol University is seeking pharmaceutical, biotechnology and research partners for joint research, pilot development, technology transfer, licensing, investment or financing, and knowledge exchange. Desired partner contributions include extract standardization; identification and characterization of active compounds; mechanism-of-action studies; formulation development; preclinical safety and efficacy studies; and GMP-compatible manufacturing-process development. Technology-transfer or licensing terms may be discussed according to the development plan, intended application, target territory and partner contribution. Any arrangement will be subject to institutional review, confirmation of territorial rights and a separate agreement.",
+    "institute": "Institute for Technology and Innovation Management (iNT), Mahidol University",
+    "trl": "TRL 3 — Experimental proof of concept",
+    "sector": "Health care technology",
+    "sector_codes": [
+      "11"
+    ],
+    "sector_code": "11",
+    "classification_method": "apctt_taxonomy_tid",
+    "classification_confidence": "high",
+    "keywords": [
+      "Astraeus asiaticus",
+      "Antiviral extract",
+      "Herpes simplex virus",
+      "Enterovirus 71",
+      "Acyclovir combination"
+    ],
+    "countries": [
+      "Thailand"
+    ],
+    "language": "en",
+    "reg_date": "2026-09-09",
+    "url": "https://www.apctt.org/node/964"
+  },
+  {
+    "id": "apctt_963",
+    "tech_id": "963",
+    "title": "Immunochromatographic Test Kit for Detecting Anti-Interferon-Gamma Antibodies",
+    "summary": "A laboratory-developed immunochromatographic test strip detects anti-interferon-gamma antibodies in serum through visual test and control lines, providing a foundation for further clinical validation and in vitro diagnostic kit development.",
+    "search_text": "A laboratory-developed immunochromatographic test strip detects anti-interferon-gamma antibodies in serum through visual test and control lines, providing a foundation for further clinical validation and in vitro diagnostic kit development. This laboratory-developed immunochromatographic test strip uses an antigen-based approach to detect anti-interferon-gamma antibodies in serum. Test and control lines provide a visual readout. The test-strip prototype was evaluated under laboratory conditions using positive and negative pooled serum samples. Separately, the underlying double-antigen sandwich ELISA method was evaluated using serum samples from 20 patients with adult-onset immunodeficiency and compared with indirect ELISA. These findings support further development, but large-scale clinical performance, regulatory authorization, and commercial deployment have not been established. The technology is intended for further development to support the assessment of patients with suspected anti-interferon-gamma-associated adult-onset immunodeficiency. It should not be presented as a standalone diagnostic test for immunodeficiency or as a measure of disease severity. Further clinical validation is required. 1. Provides a visually readable test-strip format for detecting anti-interferon-gamma antibodies in serum. 2. Has the potential to simplify testing and reduce dependence on specialized readers. 3. May support decentralized testing following clinical validation and applicable regulatory authorization. 4. Provides a foundation for further diagnostic-kit development, clinical evaluation, and manufacturing collaboration. 1. Anti-interferon-gamma antibody detection 2. Adult-onset immunodeficiency research 3. Clinical immunology and infectious-disease research 4. In vitro diagnostic-kit development 5. Potential decentralized testing following validation and regulatory authorization Joint research and technology transfer are sought. Potential partners include in vitro diagnostic manufacturers, biotechnology companies, clinical laboratories, hospital research teams, and research institutions with immunoassay and diagnostic-validation expertise. Collaboration may cover further clinical evaluation, diagnostic-kit development, and manufacturing. Any licensing or technology-transfer arrangement will be subject to confirmation of territorial rights and approval by the relevant rights holders.",
+    "institute": "Institute for Technology and Innovation Management (iNT), Mahidol University,",
+    "trl": "TRL 4 — Technology validated in laboratory",
+    "sector": "Health care technology",
+    "sector_codes": [
+      "11"
+    ],
+    "sector_code": "11",
+    "classification_method": "apctt_taxonomy_tid",
+    "classification_confidence": "high",
+    "keywords": [
+      "Anti-interferon-gamma antibodies",
+      "Immunochromatography",
+      "Diagnostic test strip",
+      "dult-onset immunodeficiency",
+      "In vitro diagnostics"
+    ],
+    "countries": [
+      "Thailand"
+    ],
+    "language": "en",
+    "reg_date": "2026-09-09",
+    "url": "https://www.apctt.org/node/963"
+  }
+]

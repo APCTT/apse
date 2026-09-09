@@ -1,7 +1,7 @@
 # Crawled source index operations
 
 The production API does not crawl source websites during a user request.
-Seven source indexes are committed as JSON under `backend/sources/data/` and
+Eight source indexes are committed as JSON under `backend/sources/data/` and
 loaded by `StaticJSONSource`. This keeps the Render web service small and
 avoids a paid background worker or database.
 
@@ -21,6 +21,7 @@ safeguarded crawlers shown below write staging snapshots by default.
 | NRDC India | `python -m backend.sources.crawl_nrdc` | `nrdc_india.staging.json` | 2026-08-10 |
 | ITI Sri Lanka | `python scripts/crawl_iti_sri_lanka.py --output backend/sources/data/iti_sri_lanka.json --replace-production` | `iti_sri_lanka.json` | 2026-08-10 |
 | Malaysia R&D Commercialisation Portal | `python scripts/crawl_malaysia_rd_portal.py --output backend/sources/data/malaysia_rd_portal.json --replace-production` | `malaysia_rd_portal.json` | 2026-08-12 |
+| APCTT Technology Offers | `python scripts/crawl_apctt.py --output backend/sources/data/apctt.json --replace-production` | `apctt.json` | 2026-09-09 |
 
 `scripts/crawl_slintec.py` is orphaned: the Slintec source and its output data
 are not registered in the application.
@@ -44,6 +45,17 @@ python scripts/crawl_dost_tapi.py \
 python scripts/validate_crawled_data.py
 git diff --stat -- backend/sources/data
 ```
+
+APCTT writes `backend/sources/data/apctt.staging.json` by default. It reads the
+public Drupal catalogue outside Render because the website blocks Render's
+shared outbound network. The crawler maps Drupal country and sector TIDs to
+the Gateway taxonomy, preserves discovery text separately from the shorter
+card summary, and deliberately omits email/contact fields. Review the staging
+file before using the explicit production replacement command in the table.
+The backend defaults to `APCTT_SOURCE_MODE=snapshot`. If APCTT later restores
+access for the Render backend, setting `APCTT_SOURCE_MODE=live` and restarting
+the service re-enables request-time API loading without a code change. The live
+mode retains the reviewed snapshot as a failure fallback.
 
 CSIR, DOST-TAPI, and NRDC now default to staging output, retry failed detail
 requests three times, reject excessive failure rates and unexpected record
@@ -96,7 +108,7 @@ does not replace the production index.
 
 Start with a reviewed manual refresh rather than an unattended schedule:
 
-- CSIR, DOST-TAPI, JST, NRDC, ITI, and the Malaysia portal: monthly
+- CSIR, DOST-TAPI, JST, NRDC, ITI, the Malaysia portal, and APCTT: monthly
 - Tech2Biz: every two or three months because the translation step is slower
   and depends on a third-party free quota
 - Live API source (Korea NTB): do not crawl; keep the existing on-demand API

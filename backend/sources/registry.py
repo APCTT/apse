@@ -5,7 +5,7 @@ from backend.sources.dost_tapi import DOSTTAPISource
 from backend.sources.tech2biz import Tech2BizSource
 from backend.sources.jst_japan import JSTJapanSource
 from backend.sources.nrdc_india import NRDCIndiaSource
-from backend.sources.apctt import APCTTSource
+from backend.sources.apctt import create_apctt_source
 from backend.sources.iti_sri_lanka import ITISriLankaSource
 from backend.sources.malaysia_rd_portal import MalaysiaRDPortalSource
 from backend.config import settings
@@ -15,7 +15,10 @@ _dost = DOSTTAPISource()
 _tech2biz = Tech2BizSource()
 _jst = JSTJapanSource()
 _nrdc = NRDCIndiaSource()
-_apctt = APCTTSource()
+_apctt = create_apctt_source(
+    settings.APCTT_SOURCE_MODE,
+    api_url=settings.APCTT_API_URL,
+)
 _iti_sri_lanka = ITISriLankaSource()
 _malaysia_rd_portal = MalaysiaRDPortalSource()
 

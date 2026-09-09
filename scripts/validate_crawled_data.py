@@ -15,7 +15,7 @@ from urllib.parse import urlparse
 DATA_DIR = Path(__file__).parent.parent / "backend" / "sources" / "data"
 REQUIRED_FIELDS = ("id", "title", "url")
 NON_PRODUCTION_SUFFIXES = (".staging.json", ".checkpoint.json")
-SPECIALIZED_DATA_FILES = {"apctt_fallback.json"}
+SPECIALIZED_DATA_FILES: set[str] = set()
 
 
 def _valid_http_url(value: object) -> bool:
