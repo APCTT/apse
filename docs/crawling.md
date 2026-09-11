@@ -21,7 +21,7 @@ safeguarded crawlers shown below write staging snapshots by default.
 | NRDC India | `python -m backend.sources.crawl_nrdc` | `nrdc_india.staging.json` | 2026-08-10 |
 | ITI Sri Lanka | `python scripts/crawl_iti_sri_lanka.py --output backend/sources/data/iti_sri_lanka.json --replace-production` | `iti_sri_lanka.json` | 2026-08-10 |
 | Malaysia R&D Commercialisation Portal | `python scripts/crawl_malaysia_rd_portal.py --output backend/sources/data/malaysia_rd_portal.json --replace-production` | `malaysia_rd_portal.json` | 2026-08-12 |
-| APCTT Technology Offers | `python scripts/crawl_apctt.py --output backend/sources/data/apctt.json --replace-production` | `apctt.json` | 2026-09-09 |
+| APCTT Technology Offers | `python scripts/crawl_apctt.py --output backend/sources/data/apctt.json --replace-production` | `apctt.json` | 2026-09-11 |
 
 `scripts/crawl_slintec.py` is orphaned: the Slintec source and its output data
 are not registered in the application.

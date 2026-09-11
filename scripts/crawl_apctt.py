@@ -74,6 +74,8 @@ def _is_published(raw: dict) -> bool:
 
 
 def _format_trl(value: str) -> str:
+    if value.strip().lower() in {"not_sure", "not sure", "unknown", "n/a"}:
+        return ""
     match = re.fullmatch(r"trl_(\d+)_(.+)", value)
     if not match:
         return value.replace("_", " ").strip().title() if value else ""

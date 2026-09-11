@@ -1,5 +1,65 @@
 [
   {
+    "id": "apctt_967",
+    "tech_id": "967",
+    "title": "AI-Powered Energy and Water Optimisation Platform for Water Infrastructure",
+    "summary": "Gatisheel is an IoT-, SCADA- and AI-enabled platform for monitoring, automating and optimizing water infrastructure. It links water-flow and energy data to support efficient pumping, fault detection, remote operations and resource conservation.",
+    "search_text": "Gatisheel is an IoT-, SCADA- and AI-enabled platform for monitoring, automating and optimizing water infrastructure. It links water-flow and energy data to support efficient pumping, fault detection, remote operations and resource conservation. Gatisheel is an IoT-, SCADA- and cloud-based platform for automating and remotely managing water infrastructure. It connects pumps, valves, flow meters, level and pressure sensors, energy meters, and existing PLC or automation systems to a centralized web and mobile platform. The system provides real-time monitoring, remote operation, automated scheduling and control, fault alerts, historical reporting and performance dashboards. Its control logic and predictive or AI-assisted analytics help operators identify abnormal conditions, inefficient operations and potential maintenance requirements. By correlating water flow with electricity consumption, the platform enables operators to monitor energy used per unit of water delivered or treated and identify opportunities to improve pumping efficiency. Role-based access supports the management of multiple assets and responsibilities. The platform is designed for retrofit and new installations across water-supply networks, pumping stations, water treatment plants, sewage treatment plants, irrigation systems, canal-control infrastructure and industrial water facilities. The submission identifies applications in pump-house automation, non-revenue-water analytics, lift-irrigation management, treatment-plant automation, canal-flow control and centralized multi-site operations. According to the provider, the technology has received technology approval from the Jal Shakti Vibhag, Himachal Pradesh. Supporting documentation was referenced but not supplied for verification. 1. Supports water conservation through real-time flow monitoring, automated control and detection of abnormal water use. 2. Improves energy efficiency by monitoring pump consumption and energy used per unit of water delivered or treated. 3. Enables remote supervision and control of geographically distributed infrastructure. 4. Reduces manual intervention, unnecessary site visits and avoidable equipment downtime. 5. Provides real-time alerts and historical performance data for operational planning and maintenance. 6. Supports centralized, scalable management of multiple water assets and locations. 7. May reduce indirect greenhouse-gas emissions through lower electricity consumption. 8. Improves operational visibility, accountability and service reliability. 1. Water supply and distribution systems 2. Water and sewage treatment plants 3. Pump houses and pumping stations 4. Irrigation and lift-irrigation systems 5. Canal gates and water-control infrastructure 6. Industrial water management 7. Municipal and urban water infrastructure 8. Smart cities and smart water networks 9. Large-scale agriculture and agri-enterprises 10. Multi-site utility operations Target users include government water and irrigation departments, public water authorities, urban local bodies, smart-city authorities, treatment-plant operators, industrial facilities, Water User Associations and utility-management companies. To be discussed.",
+    "institute": "Gatisheel Agritech Private Limited",
+    "trl": "",
+    "sector": "Environment. Health protection. Safety, Energy and heat transfer engineering",
+    "sector_codes": [
+      "13",
+      "27"
+    ],
+    "sector_code": "13",
+    "classification_method": "apctt_taxonomy_tid",
+    "classification_confidence": "high",
+    "keywords": [
+      "Smart water management",
+      "Water infrastructure automation",
+      "Energy efficiency",
+      "Water conservation",
+      "IoT remote monitoring"
+    ],
+    "countries": [
+      "India"
+    ],
+    "language": "en",
+    "reg_date": "2026-09-11",
+    "url": "https://www.apctt.org/node/967"
+  },
+  {
+    "id": "apctt_966",
+    "tech_id": "966",
+    "title": "PathPal: Offline Edge-AI Assistive Mobility and Accessibility System",
+    "summary": "PathPal is an offline, edge-AI assistive device that combines computer vision, OCR, currency recognition and multidirectional obstacle detection to provide real-time audio and haptic support for safer, more independent mobility and access to printed information.",
+    "search_text": "PathPal is an offline, edge-AI assistive device that combines computer vision, OCR, currency recognition and multidirectional obstacle detection to provide real-time audio and haptic support for safer, more independent mobility and access to printed information. PathPal is an AI-powered assistive device developed by SmartEye3i Technologies Pvt. Ltd. to support the mobility, navigation and access to information of visually impaired users. It combines camera-based computer vision, offline edge-AI processing, optical character recognition, handwriting support, currency recognition and multidirectional ultrasonic obstacle sensing. The device detects hazards and other environmental information in real time and communicates results through multilingual audio feedback and differentiated vibration alerts. Its offline operation is intended to support use in crowded streets, markets and locations with limited internet connectivity. The technology integrates multiple assistive functions in a compact, rechargeable system rather than requiring separate single-purpose devices. According to the provider, PathPal has undergone more than 600 user interactions and field validations with visually impaired users, including pilots and paid pilots involving blind schools, NGOs and accessibility organizations. The provider also reports receiving an initial international order from Singapore and exporting PathPal to Geneva, Switzerland. The company reports securing INR 25 lakh in pre-seed funding from IHFC IIT Delhi and INR 16 lakh in grants and CSR support, as well as collaborations with Indian government stakeholders and T-Works. 1. Supports safer, more independent mobility for visually impaired users. 2. Provides access to printed and handwritten information through OCR and audio feedback. 3. Recognizes objects and currency. 4. Reduces reliance on caregivers for everyday navigation and information access. 5. Operates offline in low-connectivity environments. 6. Combines several assistive functions in one compact, rechargeable device. 7. Supports scalable deployment through institutions, government programmes, CSR initiatives and international partners. Blind schools and educational institutions; rehabilitation centres and healthcare settings; NGOs and disability-support organizations; government accessibility programmes; CSR deployments; public-space navigation; and international assistive-technology markets. Target beneficiaries include visually impaired individuals, blind students, elderly people with vision loss, rehabilitation beneficiaries, hospitals, government agencies and accessibility-focused institutions. The provider is seeking pilot projects, licensing arrangements, investment or financing, training or technical assistance, market-entry and local partnerships, and knowledge exchange. These partnerships are intended to support international expansion, strengthen edge-AI and sensor integration, and facilitate deployment in new markets.",
+    "institute": "SmartEye3i Technologies Pvt. Ltd.",
+    "trl": "TRL 7 — System prototype demonstrated in operational environment",
+    "sector": "Information technology, Health care technology",
+    "sector_codes": [
+      "35",
+      "11"
+    ],
+    "sector_code": "35",
+    "classification_method": "apctt_taxonomy_tid",
+    "classification_confidence": "high",
+    "keywords": [
+      "Assistive technology",
+      "Edge AI",
+      "Computer vision",
+      "Accessibility",
+      "Smart mobility"
+    ],
+    "countries": [
+      "India"
+    ],
+    "language": "en",
+    "reg_date": "2026-09-11",
+    "url": "https://www.apctt.org/node/966"
+  },
+  {
     "id": "apctt_964",
     "tech_id": "964",
     "title": "Antiviral Pharmaceutical Composition Derived from Astraeus asiaticus Mushroom Extract",

@@ -30,7 +30,7 @@ class APCTTSource(StaticJSONSource):
     transfer_type = "Technology transfer / cooperation"
     multi_country = True
     access_method = "Reviewed APCTT catalogue snapshot"
-    last_indexed = "2026-09-09"
+    last_indexed = "2026-09-11"
     org_default = "Asian and Pacific Centre for Transfer of Technology (APCTT)"
 
 

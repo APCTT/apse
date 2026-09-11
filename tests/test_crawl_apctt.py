@@ -1,7 +1,7 @@
 import unittest
 from unittest.mock import AsyncMock, patch
 
-from scripts.crawl_apctt import collect_records, normalize_record
+from scripts.crawl_apctt import _format_trl, collect_records, normalize_record
 
 
 def api_record(*, nid=948, country_tid=124, sector_tid=298, published=True):
@@ -34,6 +34,9 @@ def api_record(*, nid=948, country_tid=124, sector_tid=298, published=True):
 
 
 class APCTTCrawlerTests(unittest.IsolatedAsyncioTestCase):
+    def test_unknown_trl_is_not_presented_as_a_development_status(self):
+        self.assertEqual(_format_trl("not_sure"), "")
+
     def test_normalizes_taxonomy_and_omits_contact_details(self):
         record = normalize_record(api_record())
 
