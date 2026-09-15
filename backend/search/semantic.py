@@ -116,8 +116,10 @@ class SemanticStore:
         self,
         db_path: str | Path,
         query_retention_days: int = 30,
+        document_index_path: str | Path | None = None,
     ):
         self.db_path = Path(db_path)
+        self.document_index_path = Path(document_index_path or db_path)
         self.query_retention_days = max(1, query_retention_days)
         self._last_purge_day: date | None = None
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
@@ -129,6 +131,17 @@ class SemanticStore:
         connection = sqlite3.connect(str(self.db_path), timeout=10)
         connection.execute("PRAGMA busy_timeout = 10000")
         return connection
+
+    def _document_connect(self) -> sqlite3.Connection:
+        connection = sqlite3.connect(str(self.document_index_path), timeout=10)
+        connection.execute("PRAGMA busy_timeout = 10000")
+        return connection
+
+    def _document_index_available(self) -> bool:
+        return (
+            self.document_index_path == self.db_path
+            or self.document_index_path.is_file()
+        )
 
     def _initialize(self) -> None:
         with self._connect() as connection:
@@ -250,7 +263,9 @@ class SemanticStore:
     def document_hashes(
         self, source_id: str, model: str, dimensions: int
     ) -> dict[str, str]:
-        with self._lock, self._connect() as connection:
+        if not self._document_index_available():
+            return {}
+        with self._lock, self._document_connect() as connection:
             rows = connection.execute(
                 """
                 SELECT record_id, content_hash FROM document_embeddings
@@ -280,7 +295,8 @@ class SemanticStore:
             )
             for record_id, text, vector in documents
         ]
-        with self._lock, self._connect() as connection:
+        self.document_index_path.parent.mkdir(parents=True, exist_ok=True)
+        with self._lock, self._document_connect() as connection:
             connection.executemany(
                 """
                 INSERT INTO document_embeddings(
@@ -298,7 +314,9 @@ class SemanticStore:
     def document_vectors(
         self, source_id: str, model: str, dimensions: int
     ) -> dict[str, tuple[float, ...]]:
-        with self._lock, self._connect() as connection:
+        if not self._document_index_available():
+            return {}
+        with self._lock, self._document_connect() as connection:
             rows = connection.execute(
                 """
                 SELECT record_id, vector FROM document_embeddings
@@ -309,7 +327,9 @@ class SemanticStore:
         return {record_id: _unpack_vector(vector) for record_id, vector in rows}
 
     def has_document_vectors(self, model: str, dimensions: int) -> bool:
-        with self._lock, self._connect() as connection:
+        if not self._document_index_available():
+            return False
+        with self._lock, self._document_connect() as connection:
             row = connection.execute(
                 """
                 SELECT 1 FROM document_embeddings
@@ -319,6 +339,55 @@ class SemanticStore:
                 (model, dimensions),
             ).fetchone()
         return row is not None
+
+    def document_count(self, model: str, dimensions: int) -> int:
+        if not self._document_index_available():
+            return 0
+        with self._lock, self._document_connect() as connection:
+            row = connection.execute(
+                """
+                SELECT COUNT(*) FROM document_embeddings
+                WHERE model = ? AND dimensions = ?
+                """,
+                (model, dimensions),
+            ).fetchone()
+        return int(row[0]) if row else 0
+
+    def delete_stale_document_vectors(
+        self,
+        source_id: str,
+        record_ids: set[str],
+        model: str,
+        dimensions: int,
+    ) -> int:
+        """Remove records no longer present in a selectively rebuilt source."""
+        if not self._document_index_available():
+            return 0
+        with self._lock, self._document_connect() as connection:
+            existing = connection.execute(
+                """
+                SELECT record_id FROM document_embeddings
+                WHERE source_id = ? AND model = ? AND dimensions = ?
+                """,
+                (source_id, model, dimensions),
+            ).fetchall()
+            stale = [
+                record_id
+                for (record_id,) in existing
+                if record_id not in record_ids
+            ]
+            connection.executemany(
+                """
+                DELETE FROM document_embeddings
+                WHERE source_id = ? AND record_id = ?
+                  AND model = ? AND dimensions = ?
+                """,
+                [
+                    (source_id, record_id, model, dimensions)
+                    for record_id in stale
+                ],
+            )
+        return len(stale)
 
     def related_terms(self, query: str, limit: int = 8) -> tuple[str, ...]:
         with self._lock, self._connect() as connection:
@@ -486,15 +555,58 @@ class GeminiEmbeddingClient:
                         for text in chunk
                     ]
                 }
-                response = await client.post(
-                    f"{self.base_url}:batchEmbedContents",
-                    headers={
-                        "Content-Type": "application/json",
-                        "x-goog-api-key": self.api_key,
-                    },
-                    json=payload,
-                )
-                response.raise_for_status()
+                response = None
+                for attempt in range(8):
+                    try:
+                        response = await client.post(
+                            f"{self.base_url}:batchEmbedContents",
+                            headers={
+                                "Content-Type": "application/json",
+                                "x-goog-api-key": self.api_key,
+                            },
+                            json=payload,
+                        )
+                    except httpx.TransportError:
+                        if attempt == 7:
+                            raise
+                        delay = min(59.0, 5.0 * (2**attempt))
+                        logger.info(
+                            "Gemini embedding connection failed; retrying "
+                            "in %.0fs (attempt %d/8)",
+                            delay,
+                            attempt + 1,
+                        )
+                        await asyncio.sleep(delay)
+                        continue
+                    if (
+                        response.status_code == 429
+                        and "PerDay" in response.text
+                    ):
+                        response.raise_for_status()
+                    if response.status_code != 429 and response.status_code < 500:
+                        response.raise_for_status()
+                        break
+                    if attempt == 7:
+                        response.raise_for_status()
+                    retry_after = response.headers.get("retry-after", "")
+                    try:
+                        delay = float(retry_after)
+                    except ValueError:
+                        delay = (
+                            59.0
+                            if response.status_code == 429
+                            else min(59.0, 5.0 * (2**attempt))
+                        )
+                    delay = max(1.0, min(delay, 59.0))
+                    logger.info(
+                        "Gemini embedding limit reached; retrying in %.0fs "
+                        "(attempt %d/8)",
+                        delay,
+                        attempt + 1,
+                    )
+                    await asyncio.sleep(delay)
+                if response is None:
+                    raise RuntimeError("Gemini embedding request did not run")
                 vectors.extend(
                     _normalize_vector(item["values"])
                     for item in response.json()["embeddings"]
@@ -571,6 +683,7 @@ class SemanticSearchEngine:
         self.store = SemanticStore(
             settings.SEMANTIC_SEARCH_DB_PATH,
             settings.SEMANTIC_SEARCH_QUERY_RETENTION_DAYS,
+            document_index_path=settings.SEMANTIC_SEARCH_INDEX_PATH,
         )
         self.client = (
             GeminiEmbeddingClient(
@@ -713,6 +826,9 @@ class SemanticSearchEngine:
         else:
             self._document_cache.clear()
 
+    def indexed_document_count(self) -> int:
+        return self.store.document_count(self.model, self.dimensions)
+
     def score_record(
         self,
         record: dict,
@@ -782,6 +898,7 @@ class SemanticSearchEngine:
         source_id: str,
         records: list[dict],
         batch_size: int = 50,
+        pause_seconds: float = 0.0,
     ) -> tuple[int, int]:
         if not self.client:
             raise RuntimeError(
@@ -790,6 +907,17 @@ class SemanticSearchEngine:
 
         existing = self.store.document_hashes(
             source_id, self.model, self.dimensions
+        )
+        record_ids = {
+            str(record.get("id", ""))
+            for record in records
+            if str(record.get("id", ""))
+        }
+        self.store.delete_stale_document_vectors(
+            source_id,
+            record_ids,
+            self.model,
+            self.dimensions,
         )
         pending: list[tuple[str, str]] = []
         for record in records:
@@ -800,6 +928,8 @@ class SemanticSearchEngine:
 
         indexed = 0
         for offset in range(0, len(pending), batch_size):
+            if offset and pause_seconds:
+                await asyncio.sleep(pause_seconds)
             chunk = pending[offset : offset + batch_size]
             vectors = await self.client.embed_many(
                 [text for _, text in chunk],

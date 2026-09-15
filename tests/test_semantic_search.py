@@ -4,6 +4,9 @@ import tempfile
 import unittest
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
+from unittest.mock import patch
+
+import httpx
 
 from backend.search.semantic import (
     SemanticSearchEngine,
@@ -43,6 +46,177 @@ class SemanticStoreTests(unittest.TestCase):
             ).fetchone()
         self.assertNotIn("solar", row[0])
         self.assertEqual(len(row[0]), 64)
+
+    def test_deployable_document_index_is_separate_from_query_cache(self):
+        document_db = Path(self.temp_dir.name) / "documents.db"
+        document_store = SemanticStore(document_db)
+        document_store.put_document_vectors(
+            "sample",
+            [("record-1", "Solar cooling", (1.0, 0.0, 0.0))],
+            "test-model",
+            3,
+        )
+
+        split_store = SemanticStore(
+            self.db_path,
+            document_index_path=document_db,
+        )
+        split_store.put_query_vector(
+            "cold storage",
+            "test-model",
+            3,
+            (0.0, 1.0, 0.0),
+        )
+
+        self.assertEqual(split_store.document_count("test-model", 3), 1)
+        self.assertIn(
+            "record-1",
+            split_store.document_vectors("sample", "test-model", 3),
+        )
+        with sqlite3.connect(document_db) as connection:
+            query_count = connection.execute(
+                "SELECT COUNT(*) FROM query_embeddings"
+            ).fetchone()[0]
+        self.assertEqual(query_count, 0)
+
+    def test_missing_deployable_index_falls_back_without_creating_it(self):
+        missing_db = Path(self.temp_dir.name) / "missing" / "documents.db"
+        split_store = SemanticStore(
+            self.db_path,
+            document_index_path=missing_db,
+        )
+
+        self.assertFalse(split_store.has_document_vectors("test-model", 3))
+        self.assertEqual(split_store.document_count("test-model", 3), 0)
+        self.assertFalse(missing_db.exists())
+
+    def test_embedding_batch_retries_rate_limit(self):
+        from backend.search.semantic import GeminiEmbeddingClient
+
+        request = httpx.Request("POST", "https://example.test")
+        limited = httpx.Response(429, request=request, headers={"retry-after": "1"})
+        success = httpx.Response(
+            200,
+            request=request,
+            json={"embeddings": [{"values": [1.0, 0.0, 0.0]}]},
+        )
+
+        class FakeAsyncClient:
+            responses = [limited, success]
+
+            def __init__(self, *args, **kwargs):
+                pass
+
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, *args):
+                return None
+
+            async def post(self, *args, **kwargs):
+                return self.responses.pop(0)
+
+        client = GeminiEmbeddingClient("key", "test-model", 3)
+        with (
+            patch("backend.search.semantic.httpx.AsyncClient", FakeAsyncClient),
+            patch("backend.search.semantic.asyncio.sleep") as sleep,
+        ):
+            vectors = asyncio.run(
+                client.embed_many(["solar cooling"], "RETRIEVAL_DOCUMENT")
+            )
+
+        self.assertEqual(vectors, [(1.0, 0.0, 0.0)])
+        sleep.assert_awaited_once_with(1.0)
+
+    def test_embedding_batch_does_not_retry_daily_quota(self):
+        from backend.search.semantic import GeminiEmbeddingClient
+
+        request = httpx.Request("POST", "https://example.test")
+        limited = httpx.Response(
+            429,
+            request=request,
+            json={
+                "error": {
+                    "details": [
+                        {
+                            "violations": [
+                                {
+                                    "quotaId": "EmbedContentRequestsPerDay-FreeTier"
+                                }
+                            ]
+                        }
+                    ]
+                }
+            },
+        )
+
+        class FakeAsyncClient:
+            def __init__(self, *args, **kwargs):
+                pass
+
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, *args):
+                return None
+
+            async def post(self, *args, **kwargs):
+                return limited
+
+        client = GeminiEmbeddingClient("key", "test-model", 3)
+        with (
+            patch("backend.search.semantic.httpx.AsyncClient", FakeAsyncClient),
+            patch("backend.search.semantic.asyncio.sleep") as sleep,
+        ):
+            with self.assertRaises(httpx.HTTPStatusError):
+                asyncio.run(
+                    client.embed_many(
+                        ["solar cooling"],
+                        "RETRIEVAL_DOCUMENT",
+                    )
+                )
+
+        sleep.assert_not_awaited()
+
+    def test_embedding_batch_retries_transient_connection_error(self):
+        from backend.search.semantic import GeminiEmbeddingClient
+
+        request = httpx.Request("POST", "https://example.test")
+        success = httpx.Response(
+            200,
+            request=request,
+            json={"embeddings": [{"values": [1.0, 0.0, 0.0]}]},
+        )
+
+        class FakeAsyncClient:
+            calls = 0
+
+            def __init__(self, *args, **kwargs):
+                pass
+
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, *args):
+                return None
+
+            async def post(self, *args, **kwargs):
+                self.calls += 1
+                if self.calls == 1:
+                    raise httpx.ReadError("temporary disconnect", request=request)
+                return success
+
+        client = GeminiEmbeddingClient("key", "test-model", 3)
+        with (
+            patch("backend.search.semantic.httpx.AsyncClient", FakeAsyncClient),
+            patch("backend.search.semantic.asyncio.sleep") as sleep,
+        ):
+            vectors = asyncio.run(
+                client.embed_many(["solar cooling"], "RETRIEVAL_DOCUMENT")
+            )
+
+        self.assertEqual(vectors, [(1.0, 0.0, 0.0)])
+        sleep.assert_awaited_once_with(5.0)
 
     def test_sensitive_queries_do_not_learn_related_terms(self):
         self.store.learn_related_terms(

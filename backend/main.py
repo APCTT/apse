@@ -8,6 +8,7 @@ from backend.routers import analytics, search, sources
 # adding app.include_router(jpo.router, prefix="/api/v1") below.
 from backend.middleware.rate_limit import RateLimitMiddleware
 from backend.middleware.security_headers import SecurityHeadersMiddleware
+from backend.search.semantic import semantic_search
 
 logging.basicConfig(level=logging.INFO)
 
@@ -44,4 +45,12 @@ app.include_router(analytics.router, prefix="/api/v1")
 
 @app.get("/health")
 def health():
-    return {"status": "ok"}
+    indexed_documents = semantic_search.indexed_document_count()
+    return {
+        "status": "ok",
+        "semantic_search": {
+            "ready": bool(semantic_search.client and indexed_documents),
+            "indexed_documents": indexed_documents,
+            "model": semantic_search.model,
+        },
+    }

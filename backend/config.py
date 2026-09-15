@@ -24,6 +24,9 @@ class Settings(BaseSettings):
     SEMANTIC_SEARCH_ENABLED: bool = True
     SEMANTIC_SEARCH_MODEL: str = "gemini-embedding-001"
     SEMANTIC_SEARCH_DIMENSIONS: int = 768
+    # Versioned, read-only document vectors shipped with each deployment.
+    # Query-derived cache data remains separate and is never committed.
+    SEMANTIC_SEARCH_INDEX_PATH: str = "backend/search/data/semantic_index.db"
     SEMANTIC_SEARCH_DB_PATH: str = "backend/cache/semantic_search.db"
     SEMANTIC_SEARCH_QUERY_RETENTION_DAYS: int = 30
     SEMANTIC_SEARCH_MIN_SCORE: float = 0.55

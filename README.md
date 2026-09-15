@@ -187,6 +187,7 @@ GEMINI_RELATED_TERMS_MODEL=gemini-3.5-flash-lite
 SEMANTIC_SEARCH_ENABLED=true
 SEMANTIC_SEARCH_MODEL=gemini-embedding-001
 SEMANTIC_SEARCH_DIMENSIONS=768
+SEMANTIC_SEARCH_INDEX_PATH=backend/search/data/semantic_index.db
 SEMANTIC_SEARCH_DB_PATH=backend/cache/semantic_search.db
 SEMANTIC_SEARCH_DAILY_QUERY_LIMIT=800
 
@@ -201,13 +202,19 @@ Popular searches retain only `topic_id`, date, and aggregate count for six
 predefined topics. Arbitrary queries, IP addresses, and browser identifiers are
 not stored. Searches outside the allow-list are ignored.
 
-Semantic search is optional and fail-open. When Gemini is unavailable, the
-daily quota is exhausted, or no document-vector index exists, search continues
-with keyword matching and locally cached related terms. The configured default
-limit is 800 Gemini query calls per Pacific-time day. Query-vector records use
-a SHA-256 hash of the normalized query rather than the raw query.
+Semantic search is optional and fail-open. The versioned document-vector index
+is deployed from `backend/search/data/semantic_index.db`, while mutable query
+vectors, daily usage, and related-term cache remain in the ignored
+`backend/cache/semantic_search.db`. When Gemini is unavailable, the daily quota
+is exhausted, or no document-vector index exists, search continues with keyword
+matching and locally cached related terms. The configured default limit is 800
+Gemini query calls per Pacific-time day. Query-vector records use a SHA-256 hash
+of the normalized query rather than the raw query.
 
-Build or refresh the local semantic index after changing crawler data:
+Build or refresh the deployable semantic index after changing crawler data.
+The full build is atomic and starts from a clean index; a source-only build
+preserves the other indexed sources. Interrupted builds keep a `.building`
+checkpoint and resume without repeating completed document embeddings:
 
 ```sh
 python scripts/build_semantic_index.py

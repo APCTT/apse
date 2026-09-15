@@ -13,3 +13,11 @@ services:
         value: 86400
       - key: CACHE_TTL_SECONDS
         value: 86400
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: SEMANTIC_SEARCH_ENABLED
+        value: true
+      - key: SEMANTIC_SEARCH_INDEX_PATH
+        value: backend/search/data/semantic_index.db
+      - key: SEMANTIC_SEARCH_DB_PATH
+        value: backend/cache/semantic_search.db
