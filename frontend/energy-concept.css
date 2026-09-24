@@ -5,10 +5,10 @@
  */
 
 html[data-concept="network"] .apse {
-  --energy-cyan: #35c8ff;
-  --energy-cyan-soft: #dff7ff;
-  --energy-navy: #082b48;
-  --energy-blue: #075f9d;
+  --energy-cyan: var(--accent);
+  --energy-cyan-soft: var(--accent);
+  --energy-navy: var(--ink);
+  --energy-blue: var(--accent-text);
 }
 
 html[data-concept="network"] .gateway-nav {
@@ -23,8 +23,8 @@ html[data-concept="network"] .hero {
   min-height: 548px;
   border-bottom: 0;
   background:
-    radial-gradient(circle at 82% 30%, rgba(53, 200, 255, 0.19), transparent 31%),
-    linear-gradient(122deg, #06243d 0%, #0a426c 62%, #075f9d 100%);
+    radial-gradient(circle at 82% 30%, color-mix(in srgb, var(--accent) 19%, transparent), transparent 31%),
+    linear-gradient(122deg, var(--ink) 0%, var(--accent-text) 62%, var(--accent-text) 100%);
 }
 
 html[data-concept="network"] .hero::after {
@@ -33,7 +33,7 @@ html[data-concept="network"] .hero::after {
   bottom: -185px;
   width: 560px;
   height: 300px;
-  border: 1px solid rgba(117, 221, 255, 0.22);
+  border: 1px solid color-mix(in srgb, var(--accent) 22%, transparent);
   border-radius: 50%;
   content: "";
   transform: rotate(-12deg);
@@ -47,15 +47,15 @@ html[data-concept="network"] .hero-pattern {
   left: -240px;
   width: 620px;
   height: 620px;
-  border-color: rgba(117, 221, 255, 0.12);
+  border-color: color-mix(in srgb, var(--accent) 12%, transparent);
   box-shadow:
-    0 0 0 80px rgba(53, 200, 255, 0.035),
-    0 0 0 160px rgba(53, 200, 255, 0.02);
+    0 0 0 80px color-mix(in srgb, var(--accent) 3.5%, transparent),
+    0 0 0 160px color-mix(in srgb, var(--accent) 2%, transparent);
 }
 
 html[data-concept="network"] .hero-pattern::before,
 html[data-concept="network"] .hero-pattern::after {
-  border-color: rgba(117, 221, 255, 0.12);
+  border-color: color-mix(in srgb, var(--accent) 12%, transparent);
   background: transparent;
 }
 
@@ -67,7 +67,7 @@ html[data-concept="network"] .hero-content {
 }
 
 html[data-concept="network"] .eyebrow {
-  color: #8ce4ff;
+  color: var(--accent);
   letter-spacing: 0.08em;
 }
 
@@ -79,20 +79,20 @@ html[data-concept="network"] .eyebrow span {
 html[data-concept="network"] .hero h1 {
   max-width: 650px;
   margin: 13px 0 16px;
-  color: #fff;
+  color: var(--surface);
   font-size: clamp(42px, 4.2vw, 57px);
   line-height: 1.08;
   letter-spacing: -0.025em;
 }
 
 html[data-concept="network"] .hero h1 em {
-  color: #79ddff;
+  color: var(--accent);
 }
 
 html[data-concept="network"] .hero-content > p {
   max-width: 610px;
   margin: 0 0 30px;
-  color: rgba(255, 255, 255, 0.76);
+  color: color-mix(in srgb, var(--surface) 76%, transparent);
   font-size: 17px;
 }
 
@@ -102,44 +102,44 @@ html[data-concept="network"] .search-form {
   width: min(680px, 64%);
   min-height: 64px;
   margin: 0;
-  border: 1px solid rgba(255, 255, 255, 0.34);
+  border: 1px solid color-mix(in srgb, var(--surface) 34%, transparent);
   border-radius: 5px;
-  box-shadow: 0 20px 45px rgba(0, 18, 33, 0.3);
+  box-shadow: 0 20px 45px color-mix(in srgb, var(--ink) 30%, transparent);
 }
 
 html[data-concept="network"] .search-button {
-  border-color: #0b77b7;
-  background: #0b77b7;
+  border-color: var(--accent-text);
+  background: var(--accent-text);
 }
 
 html[data-concept="network"] .search-button:hover {
-  border-color: #089ad6;
-  background: #089ad6;
+  border-color: var(--accent-text);
+  background: var(--accent-text);
 }
 
 html[data-concept="network"] .focus-theme-searches {
   position: relative;
   z-index: 2;
   width: 64%;
-  color: rgba(255, 255, 255, 0.62);
+  color: color-mix(in srgb, var(--surface) 62%, transparent);
 }
 
 html[data-concept="network"] .focus-theme-heading > span,
 html[data-concept="network"] .focus-theme-heading small {
-  color: #d7f6ff;
+  color: var(--accent);
 }
 
 html[data-concept="network"] .focus-theme-chips button {
-  border-color: rgba(133, 224, 255, 0.28);
-  color: #d7f6ff;
-  background: rgba(255, 255, 255, 0.07);
+  border-color: color-mix(in srgb, var(--accent) 28%, transparent);
+  color: var(--accent);
+  background: color-mix(in srgb, var(--surface) 7%, transparent);
 }
 
 html[data-concept="network"] .focus-theme-chips button:hover,
 html[data-concept="network"] .focus-theme-chips button.active {
   border-color: var(--energy-cyan);
-  color: #fff;
-  background: rgba(53, 200, 255, 0.16);
+  color: var(--surface);
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
 }
 
 html[data-concept="network"] .hero-network-visual {
@@ -156,7 +156,7 @@ html[data-concept="network"] .hero-network-visual {
 html[data-concept="network"] .hero-network-visual svg {
   display: block;
   width: 100%;
-  filter: drop-shadow(0 24px 45px rgba(0, 17, 31, 0.24));
+  filter: drop-shadow(0 24px 45px color-mix(in srgb, var(--ink) 24%, transparent));
 }
 
 html[data-concept="network"] .network-glow {
@@ -165,7 +165,7 @@ html[data-concept="network"] .network-glow {
 
 html[data-concept="network"] .network-orbits {
   fill: none;
-  stroke: rgba(154, 232, 255, 0.2);
+  stroke: color-mix(in srgb, var(--accent) 20%, transparent);
   stroke-width: 1;
   stroke-dasharray: 5 8;
 }
@@ -184,13 +184,13 @@ html[data-concept="network"] .route-branch {
 
 html[data-concept="network"] .network-nodes circle {
   fill: var(--energy-cyan);
-  stroke: rgba(255, 255, 255, 0.92);
+  stroke: color-mix(in srgb, var(--surface) 92%, transparent);
   stroke-width: 3;
 }
 
 html[data-concept="network"] .network-labels {
-  fill: rgba(211, 246, 255, 0.72);
-  font-family: "Roboto", Arial, sans-serif;
+  fill: color-mix(in srgb, var(--accent) 72%, transparent);
+  font-family: var(--font-sans);
   font-size: 10px;
   font-weight: 700;
   letter-spacing: 1.8px;
@@ -204,13 +204,13 @@ html[data-concept="network"] .network-caption {
   flex-direction: column;
   padding: 14px 16px;
   border-left: 3px solid var(--energy-cyan);
-  background: rgba(4, 32, 52, 0.68);
-  box-shadow: 0 12px 30px rgba(0, 16, 29, 0.2);
+  background: color-mix(in srgb, var(--ink) 68%, transparent);
+  box-shadow: 0 12px 30px color-mix(in srgb, var(--ink) 20%, transparent);
   backdrop-filter: blur(8px);
 }
 
 html[data-concept="network"] .network-caption span {
-  color: #7ddfff;
+  color: var(--accent);
   font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.08em;
@@ -219,20 +219,20 @@ html[data-concept="network"] .network-caption span {
 
 html[data-concept="network"] .network-caption strong {
   margin-top: 3px;
-  color: #fff;
+  color: var(--surface);
   font-size: 13px;
 }
 
 html[data-concept="network"] .search-section {
   border-top: 5px solid var(--energy-cyan);
   background:
-    linear-gradient(90deg, rgba(11, 112, 183, 0.025) 1px, transparent 1px),
-    #f5f8fb;
+    linear-gradient(90deg, color-mix(in srgb, var(--accent-text) 2.5%, transparent) 1px, transparent 1px),
+    var(--accent);
   background-size: 52px 52px;
 }
 
 html[data-concept="network"] .section-kicker {
-  color: #0788c5;
+  color: var(--accent-text);
 }
 
 html[data-concept="network"] .global-stats-bar,
@@ -247,20 +247,20 @@ html[data-concept="network"] .source-detail-card {
 
 html[data-concept="network"] .technology-card:hover,
 html[data-concept="network"] .source-detail-card:hover {
-  border-color: #9ed9ef;
-  box-shadow: 0 12px 28px rgba(8, 67, 104, 0.12);
+  border-color: var(--accent);
+  box-shadow: 0 12px 28px color-mix(in srgb, var(--accent-text) 12%, transparent);
   transform: translateY(-2px);
 }
 
 html[data-concept="network"] .sources-section {
   border-top-color: var(--energy-cyan);
-  background: linear-gradient(180deg, #edf7fb 0%, #f4f6f8 36%);
+  background: linear-gradient(180deg, var(--accent) 0%, var(--paper) 36%);
 }
 
 html[data-concept="network"] .about-section {
   background:
-    radial-gradient(circle at 85% 30%, rgba(53, 200, 255, 0.18), transparent 28%),
-    linear-gradient(120deg, #061f35, #073c62);
+    radial-gradient(circle at 85% 30%, color-mix(in srgb, var(--accent) 18%, transparent), transparent 28%),
+    linear-gradient(120deg, var(--ink), var(--accent-text));
 }
 
 @media (max-width: 900px) {

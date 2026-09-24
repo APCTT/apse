@@ -5,14 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'self'; base-uri 'self'; object-src 'none'; form-action 'self'; img-src 'self' data: https:; font-src 'self' data: https://fonts.gstatic.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; script-src 'self' 'sha256-65nLV9+WjWHNZMH+98Bks30gB2tEhdQJyvh+sKCtndQ=' https://www.googletagmanager.com; connect-src 'self' http://127.0.0.1:8000 https://apsei-api.onrender.com https://translate.googleapis.com https://www.googletagmanager.com https://*.google-analytics.com; frame-src 'none';"
+      content="default-src 'self'; base-uri 'self'; object-src 'none'; form-action 'self'; img-src 'self' data: https:; font-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self' 'sha256-65nLV9+WjWHNZMH+98Bks30gB2tEhdQJyvh+sKCtndQ=' https://www.googletagmanager.com; connect-src 'self' http://127.0.0.1:8000 https://apsei-api.onrender.com https://translate.googleapis.com https://www.googletagmanager.com https://*.google-analytics.com; frame-src 'none';"
     />
     <meta
       name="description"
       content="Discover technology offers, licensing opportunities and R&amp;D solutions from public databases across Asia and the Pacific."
     />
     <meta name="robots" content="index, follow, max-image-preview:large" />
-    <meta name="theme-color" content="#0b2942" />
+    <meta name="theme-color" content="rgb(11 27 43)" />
     <link rel="canonical" href="https://ap-tg.net/" />
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="Asia-Pacific Tech Gateway" />
@@ -38,22 +38,23 @@
       }
     </script>
     <link rel="icon" type="image/svg+xml" href="assets/tech-gateway-app-icon.svg?v=1" />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@600;700;800&family=Roboto:wght@400;500;700&display=swap"
-      rel="stylesheet"
+      rel="preload"
+      href="assets/fonts/Geist-Regular.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
     />
-    <link rel="stylesheet" href="styles.css?v=25" />
+    <link rel="stylesheet" href="styles.css?v=26" />
     <link
       id="apctt-theme"
       rel="stylesheet"
-      href="apctt-theme.css?v=10"
+      href="apctt-theme.css?v=11"
     />
     <link
       id="energy-concept"
       rel="stylesheet"
-      href="energy-concept.css?v=4"
+      href="energy-concept.css?v=5"
       disabled
     />
     <script src="theme-init.js?v=3"></script>
@@ -139,12 +140,12 @@
             <svg viewBox="0 0 540 430">
               <defs>
                 <linearGradient id="gateway-route" x1="0" y1="1" x2="1" y2="0">
-                  <stop offset="0" stop-color="#52d5ff"/>
-                  <stop offset="1" stop-color="#9ee9ff"/>
+                  <stop offset="0" stop-color="var(--accent)"/>
+                  <stop offset="1" stop-color="var(--accent-hover)"/>
                 </linearGradient>
                 <radialGradient id="gateway-glow">
-                  <stop offset="0" stop-color="#35c8ff" stop-opacity=".38"/>
-                  <stop offset="1" stop-color="#35c8ff" stop-opacity="0"/>
+                  <stop offset="0" stop-color="var(--accent)" stop-opacity=".38"/>
+                  <stop offset="1" stop-color="var(--accent)" stop-opacity="0"/>
                 </radialGradient>
               </defs>
               <circle class="network-glow" cx="285" cy="215" r="208"/>
