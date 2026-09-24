@@ -104,6 +104,14 @@ class SemanticQueryContext:
     def available(self) -> bool:
         return bool(self.vector or self.related_terms)
 
+    @property
+    def mode(self) -> str:
+        if self.vector:
+            return "semantic"
+        if self.related_terms:
+            return "expanded"
+        return "keyword"
+
 
 class SemanticStore:
     """SQLite cache for vectors and privacy-filtered related terms.
@@ -834,9 +842,9 @@ class SemanticSearchEngine:
         record: dict,
         context: SemanticQueryContext,
         source_id: str,
-    ) -> tuple[bool, float, float]:
+    ) -> tuple[bool, float, float, str]:
         if not context.query:
-            return True, 0.0, 0.0
+            return True, 0.0, 0.0, "browse"
 
         searchable = normalize_query(searchable_text(record))
         title = normalize_query(record.get("title", ""))
@@ -858,14 +866,26 @@ class SemanticSearchEngine:
             if record_vector:
                 semantic = cosine_similarity(context.vector, record_vector)
 
-        matches = exact or related_matches > 0 or semantic >= self.min_score
+        match_reason = "none"
+        if exact:
+            match_reason = "keyword"
+        # Learned terms may boost ranking, but must not broaden an available
+        # embedding search on their own. A previously learned generic word
+        # such as "solar" otherwise turns one precise need into hundreds of
+        # weak matches. Related terms remain a fallback only when no query
+        # vector is available.
+        elif related_matches > 0 and not context.vector:
+            match_reason = "expanded"
+        elif semantic >= self.min_score:
+            match_reason = "semantic"
+        matches = match_reason != "none"
         score = (
             semantic * 0.60
             + lexical * 0.30
             + related_score * 0.10
             + (0.05 if title_exact else 0.0)
         )
-        return matches, score, semantic
+        return matches, score, semantic, match_reason
 
     def learn_from_matches(
         self,

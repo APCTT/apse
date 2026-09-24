@@ -9,6 +9,7 @@ from unittest.mock import patch
 import httpx
 
 from backend.search.semantic import (
+    SemanticQueryContext,
     SemanticSearchEngine,
     SemanticStore,
     cosine_similarity,
@@ -288,6 +289,81 @@ class SemanticStoreTests(unittest.TestCase):
             normalize_query("  Renewable   ENERGY "),
             "renewable energy",
         )
+
+    def test_low_confidence_semantic_match_is_rejected(self):
+        engine = SemanticSearchEngine()
+        engine.min_score = 0.63
+        engine._document_cache["sample"] = {
+            "record-1": (0.61, (1.0 - 0.61**2) ** 0.5),
+        }
+        context = SemanticQueryContext(query="zzzxxyyqqq", vector=(1.0, 0.0))
+
+        matched, _, score, reason = engine.score_record(
+            {"id": "record-1", "title": "Unrelated technology"},
+            context,
+            "sample",
+        )
+
+        self.assertFalse(matched)
+        self.assertAlmostEqual(score, 0.61)
+        self.assertEqual(reason, "none")
+
+    def test_confident_semantic_match_is_identified(self):
+        engine = SemanticSearchEngine()
+        engine.min_score = 0.63
+        engine._document_cache["sample"] = {
+            "record-1": (0.68, (1.0 - 0.68**2) ** 0.5),
+        }
+        context = SemanticQueryContext(
+            query="off grid crop watering using sunlight",
+            vector=(1.0, 0.0),
+        )
+
+        matched, _, score, reason = engine.score_record(
+            {"id": "record-1", "title": "Programmable Irrigation Scheduler"},
+            context,
+            "sample",
+        )
+
+        self.assertTrue(matched)
+        self.assertAlmostEqual(score, 0.68)
+        self.assertEqual(reason, "semantic")
+
+    def test_exact_keyword_match_survives_semantic_threshold(self):
+        engine = SemanticSearchEngine()
+        engine.min_score = 0.63
+        context = SemanticQueryContext(query="solar irrigation")
+
+        matched, _, score, reason = engine.score_record(
+            {"id": "record-1", "title": "Solar irrigation controller"},
+            context,
+            "sample",
+        )
+
+        self.assertTrue(matched)
+        self.assertEqual(score, 0.0)
+        self.assertEqual(reason, "keyword")
+
+    def test_learned_term_cannot_override_weak_semantic_match(self):
+        engine = SemanticSearchEngine()
+        engine.min_score = 0.63
+        engine._document_cache["sample"] = {
+            "record-1": (0.58, (1.0 - 0.58**2) ** 0.5),
+        }
+        context = SemanticQueryContext(
+            query="off grid crop watering",
+            vector=(1.0, 0.0),
+            related_terms=("solar",),
+        )
+
+        matched, _, _, reason = engine.score_record(
+            {"id": "record-1", "title": "Generic solar technology"},
+            context,
+            "sample",
+        )
+
+        self.assertFalse(matched)
+        self.assertEqual(reason, "none")
 
     def test_daily_api_limit_is_atomic_and_resets_next_day(self):
         today = date(2026, 8, 3)

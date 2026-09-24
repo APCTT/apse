@@ -82,6 +82,23 @@ into the APTG snapshot. The crawler writes staging output by default, blocks
 unexpected drops below 900 records, and requires the standard explicit flags
 before replacing production data.
 
+The portal mixes English and Malay, including records with an English title
+and Malay description. After reviewing a refreshed staging snapshot, classify
+and translate fields with the checkpointed enrichment command:
+
+```sh
+python scripts/enrich_malaysia_rd_portal.py
+python scripts/enrich_malaysia_rd_portal.py \
+  --output backend/sources/data/malaysia_rd_portal.json \
+  --replace-production
+```
+
+English fields remain unchanged. Malay fields are translated with Gemini,
+their originals are retained in `title_original` or `summary_original`, and
+the production replacement is refused without the explicit flag. The full
+1,027-record snapshot uses 65 requests at the default batch size and keeps its
+checkpoint outside version control.
+
 Tech2Biz writes `backend/sources/data/tech2biz.staging.json` by default and
 preserves the original Thai title and description. MyMemory translation is
 optional (`--translate-mymemory`); quota and error messages are rejected and

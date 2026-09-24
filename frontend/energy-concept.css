@@ -1,7 +1,7 @@
 /*
  * Optional high-energy visual direction.
- * This is the default APCTT visual direction. Use ?concept=standard to compare
- * against the quieter APCTT-aligned theme without these overrides.
+ * Legacy high-energy visual direction, retained for comparison with
+ * ?concept=legacy-network. The discovery workspace is now the default.
  */
 
 html[data-concept="network"] .apse {

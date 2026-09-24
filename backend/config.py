@@ -29,7 +29,11 @@ class Settings(BaseSettings):
     SEMANTIC_SEARCH_INDEX_PATH: str = "backend/search/data/semantic_index.db"
     SEMANTIC_SEARCH_DB_PATH: str = "backend/cache/semantic_search.db"
     SEMANTIC_SEARCH_QUERY_RETENTION_DAYS: int = 30
-    SEMANTIC_SEARCH_MIN_SCORE: float = 0.55
+    # Gemini embeddings have a relatively high cosine-similarity baseline,
+    # even for nonsense input. 0.63 is the lowest score that separated the
+    # verified technology-need queries from the gibberish control set when
+    # measured against the shipped catalogue index.
+    SEMANTIC_SEARCH_MIN_SCORE: float = 0.63
     SEMANTIC_SEARCH_DAILY_QUERY_LIMIT: int = 800
 
     model_config = {"env_file": ".env"}

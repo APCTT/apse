@@ -21,14 +21,20 @@ arrangements may change following formal review.
 - Searches registered metadata sources concurrently.
 - Merges results using round-robin pagination so one large source does not
   dominate the first page.
-- Applies country, sector, database-type, and source filters in real time.
+- Applies country, sector, database-type, and source filters in real time. Long
+  filter groups initially show the five most relevant values, with in-filter
+  search and an explicit `Show all` control.
 - Provides four editorially curated featured technology themes as optional
   search shortcuts while keeping `All technologies` as the default scope.
 - Lets users select up to three records and compare normalized metadata side by
   side. The comparison list is stored only in that browser; it does not create
-  a server-side user database.
+  a server-side user database. On small screens the comparison is presented
+  field by field instead of as a wide horizontal table.
 - Uses query-aware facet counts for locally indexed catalogues.
 - Links each result to its original source record.
+- Presents provider and data currency consistently on result cards. Readiness,
+  source date, and machine-translation provenance appear only when the source
+  supplies them; missing optional metadata is not inferred or foregrounded.
 - Falls back safely when an optional live source or semantic-search service is
   unavailable.
 
@@ -74,7 +80,7 @@ themes so totals and pagination stay accurate.
 | JST Japan Patent Portfolio | Japan | Reviewed crawler snapshot stored as JSON |
 | NRDC India | India | Reviewed crawler snapshot stored as JSON |
 | ITI Technology Bank | Sri Lanka | Reviewed crawler snapshot stored as JSON |
-| Malaysia R&D Commercialisation Portal | Malaysia | Reviewed public-catalogue snapshot stored as JSON; contact fields omitted |
+| Malaysia R&D Commercialisation Portal | Malaysia | Reviewed public-catalogue snapshot stored as JSON; Malay fields translated to English with originals preserved; contact fields omitted |
 | APCTT Technology Offers | Asia and the Pacific | Reviewed public-catalogue snapshot stored as JSON; contact fields omitted |
 
 Source websites remain authoritative. Crawled snapshots can lag behind their
@@ -160,7 +166,7 @@ requirements and run:
 ```sh
 python -m pip install -r requirements-dev.txt
 python -m pytest -q
-node --test tests/frontend-security.test.js tests/frontend-analytics.test.js tests/frontend-seo.test.js tests/frontend-compare.test.js tests/merged-pagination.test.js
+node --test tests/*.test.js
 python scripts/validate_crawled_data.py
 python -m pip_audit -r backend/requirements.txt
 ```
@@ -210,6 +216,15 @@ is exhausted, or no document-vector index exists, search continues with keyword
 matching and locally cached related terms. The configured default limit is 800
 Gemini query calls per Pacific-time day. Query-vector records use a SHA-256 hash
 of the normalized query rather than the raw query.
+
+Meaning-based results must meet `SEMANTIC_SEARCH_MIN_SCORE` (default `0.63`).
+Exact keyword matches remain eligible regardless of that threshold. When a
+query vector is available, cached related terms may improve ranking but cannot
+independently add weak results; related-term expansion is used only as the
+fallback when an embedding is unavailable. The API reports `search_mode` as
+`semantic`, `expanded`, or `keyword`, and the interface explains the active
+mode. A semantic query with no confident matches is shown as a zero-result state
+instead of presenting low-confidence suggestions as normal results.
 
 Build or refresh the deployable semantic index after changing crawler data.
 The full build is atomic and starts from a clean index; a source-only build

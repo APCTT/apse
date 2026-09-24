@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 # Bump whenever the registered source set or response semantics change so
 # searches cached before a catalogue addition cannot hide the new records.
-SEARCH_CACHE_SCHEMA_VERSION = 12
+SEARCH_CACHE_SCHEMA_VERSION = 15
 
 
 def _cache_key(params: dict) -> str:
@@ -48,6 +48,12 @@ async def search(
     if focus_theme:
         filters["_focus_theme"] = focus_theme
 
+    semantic_context = None
+    if query:
+        semantic_context = await semantic_search.prepare_query(query)
+        filters["_semantic_context"] = semantic_context
+    search_mode = semantic_context.mode if semantic_context else "keyword"
+
     key = _cache_key({"q": query, "country": country, "sector": sector,
                        "source": source, "exclude": exclude, "language": language,
                        "transfer_type": transfer_type, "focus": focus_value, "page": page})
@@ -63,6 +69,7 @@ async def search(
             source_totals=source_totals,
             partial=bool(failed_sources),
             failed_sources=failed_sources,
+            search_mode=search_mode,
         )
 
     active_sources = SOURCES
@@ -88,11 +95,6 @@ async def search(
     if transfer_type:
         transfer_types = {t.strip() for t in transfer_type.split(",") if t.strip()}
         active_sources = [s for s in active_sources if s.transfer_type in transfer_types]
-
-    # One semantic context is shared by every locally indexed source. If the
-    # free API is unavailable, prepare_query returns a keyword-only context.
-    if query:
-        filters["_semantic_context"] = await semantic_search.prepare_query(query)
 
     # NTB can be slow from Render. APCTT snapshot mode returns immediately;
     # its extra budget preserves the opt-in live compatibility mode.
@@ -146,4 +148,5 @@ async def search(
         source_totals=source_totals,
         partial=bool(failed_sources),
         failed_sources=failed_sources,
+        search_mode=search_mode,
     )

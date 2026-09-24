@@ -172,7 +172,7 @@ class StaticJSONSource(BaseSource):
                     )
             rec["_sector_classification"] = classification
 
-    def _to_technology(self, rec: dict) -> Technology:
+    def _to_technology(self, rec: dict, match_reason: str = "") -> Technology:
         classification = rec["_sector_classification"]
         countries = self._record_countries(rec)
         return Technology(
@@ -199,6 +199,12 @@ class StaticJSONSource(BaseSource):
             taxonomy_version=TAXONOMY_VERSION,
             classification_method=classification.method,
             classification_confidence=classification.confidence,
+            match_reason=match_reason,
+            translation_status=(
+                rec.get("summary_translation_status")
+                or rec.get("title_translation_status")
+                or ""
+            ),
         )
 
     async def search(self, query: str, filters: dict) -> tuple[list[Technology], int]:
@@ -220,7 +226,7 @@ class StaticJSONSource(BaseSource):
             if value.strip()
         }
 
-        matched: list[tuple[dict, float, int]] = []
+        matched: list[tuple[dict, float, int, str]] = []
         semantic_evidence: list[tuple[dict, float]] = []
         for rec in self._records:
             if selected_countries and not selected_countries.intersection(
@@ -239,18 +245,27 @@ class StaticJSONSource(BaseSource):
                 if not focus_match:
                     continue
             if q:
-                is_match, score, semantic_score = semantic_search.score_record(
+                is_match, score, semantic_score, match_reason = semantic_search.score_record(
                     search_record,
                     semantic_context,
                     self.id,
                 )
                 if not is_match:
                     continue
-                matched.append((rec, score, focus_score))
+                matched.append((rec, score, focus_score, match_reason))
                 if semantic_score:
                     semantic_evidence.append((search_record, semantic_score))
             else:
-                matched.append((rec, 0.0, focus_score))
+                matched.append((
+                    rec,
+                    0.0,
+                    focus_score,
+                    "featured"
+                    if focus_theme
+                    else "filter"
+                    if any(filters.get(key) for key in ("country", "sector"))
+                    else "",
+                ))
 
         if focus_theme:
             matched.sort(
@@ -273,7 +288,10 @@ class StaticJSONSource(BaseSource):
 
         total = len(matched)
         page_slice = matched[(page - 1) * page_size: page * page_size]
-        return [self._to_technology(record) for record, _, _ in page_slice], total
+        return [
+            self._to_technology(record, match_reason)
+            for record, _, _, match_reason in page_slice
+        ], total
 
     def sector_facets(self) -> dict[str, int]:
         self._load()

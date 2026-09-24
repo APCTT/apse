@@ -121,6 +121,11 @@ class KoreaNTBSource(BaseSource):
             root = await self._request(params)
             total_count = int(root.findtext(".//totalCount") or "0")
             items = [self._normalize(item) for item in root.findall(".//item")]
+            if query:
+                items = [
+                    item.model_copy(update={"match_reason": "source"})
+                    for item in items
+                ]
             if selected_sectors:
                 items = [
                     item
@@ -157,6 +162,11 @@ class KoreaNTBSource(BaseSource):
         merged = self._round_robin(groups)
         start = (page - 1) * 20
         items = merged[start:start + 20]
+        if query:
+            items = [
+                item.model_copy(update={"match_reason": "source"})
+                for item in items
+            ]
         logger.info("NTB: %d items from %d native sectors (total=%d)", len(items), len(roots), total_count)
         return items, total_count
 

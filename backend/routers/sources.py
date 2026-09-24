@@ -117,7 +117,7 @@ async def get_facets(
                         continue
                 if query:
                     if semantic_context and semantic_context.available:
-                        is_match, _, _ = semantic_search.score_record(
+                        is_match, _, _, _ = semantic_search.score_record(
                             record["record"],
                             semantic_context,
                             catalogue.id,

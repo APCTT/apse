@@ -58,6 +58,7 @@ const state = {
   resultsView: "list",
   mergedPage: 1,
   compareItems: [],
+  compareTrayCollapsed: false,
 };
 
 try {
@@ -68,12 +69,20 @@ try {
 
 const FILTER_STATE_KEYS = ["countries", "sectors", "databaseTypes", "sources"];
 
+function setElementInert(element, isInert) {
+  if (!element) return;
+  element.toggleAttribute("inert", isInert);
+  if ("inert" in element) element.inert = isInert;
+}
+
 const els = {
   form: document.querySelector("#search-form"),
   input: document.querySelector("#search-input"),
   results: document.querySelector("#results-container"),
   title: document.querySelector("#results-title"),
   summary: document.querySelector("#results-summary"),
+  searchMethod: document.querySelector("#search-method-note"),
+  resultsTrust: document.querySelector("#results-trust-strip"),
   countryMs: document.querySelector("#country-multiselect"),
   sectorMs: document.querySelector("#sector-multiselect"),
   dbtypeMs: document.querySelector("#dbtype-multiselect"),
@@ -85,6 +94,7 @@ const els = {
   resetFilters: document.querySelector(".reset-filters"),
   filterBackdrop: document.querySelector(".filter-backdrop"),
   mobileFilterCount: document.querySelector(".mobile-filter-count"),
+  mobileFilterButton: document.querySelector(".mobile-filter-button"),
   app: document.querySelector(".apse"),
   compareTray: document.querySelector("#compare-tray"),
   compareTrayItems: document.querySelector("#compare-tray-items"),
@@ -133,12 +143,35 @@ function trackFilterAnalytics(filterType, previous, next) {
 
 const multiselectInstances = [];
 
-function initMultiselect(containerEl, options, getSelected, onChange, { defaultOpen = false } = {}) {
+function initMultiselect(containerEl, options, getSelected, onChange, {
+  defaultOpen = false,
+  previewLimit = 5,
+  searchable = true,
+} = {}) {
   let isOpen = defaultOpen;
+  let showAll = false;
+  let searchTerm = "";
   const groupLabel = containerEl.previousElementSibling?.textContent?.trim() || "Filter";
 
-  function render() {
+  function render({ focusSearch = false } = {}) {
     const selected = getSelected();
+    const selectedSet = new Set(selected);
+    const normalizedSearch = searchTerm.trim().toLowerCase();
+    const rankedOptions = [...options].sort((a, b) => {
+      const selectedDifference = Number(selectedSet.has(b.value)) - Number(selectedSet.has(a.value));
+      if (selectedDifference) return selectedDifference;
+      const aCount = Number.isFinite(a.count) ? a.count : -1;
+      const bCount = Number.isFinite(b.count) ? b.count : -1;
+      return bCount - aCount || a.label.localeCompare(b.label);
+    });
+    const filteredOptions = normalizedSearch
+      ? rankedOptions.filter((option) => `${option.label} ${option.value}`.toLowerCase().includes(normalizedSearch))
+      : rankedOptions;
+    const visibleOptions = showAll || normalizedSearch || filteredOptions.length <= previewLimit
+      ? filteredOptions
+      : filteredOptions.slice(0, previewLimit);
+    const canSearch = searchable && options.length > 8;
+    const hasMore = filteredOptions.length > previewLimit;
 
     containerEl.innerHTML = `
       <button type="button" class="facet-group-toggle" aria-expanded="${isOpen}">
@@ -146,16 +179,25 @@ function initMultiselect(containerEl, options, getSelected, onChange, { defaultO
         <svg viewBox="0 0 20 20" aria-hidden="true"><path d="m5 8 5 5 5-5" /></svg>
       </button>
       <div class="facet-options" ${isOpen ? "" : "hidden"}>
-        ${options.map((o) => `
-          <label class="facet-option">
-            <span>
-              <input type="checkbox" value="${escapeHtml(o.value)}" ${selected.includes(o.value) ? "checked" : ""}>
-              <span>${escapeHtml(o.label)}</span>
-            </span>
-            ${Number.isFinite(o.count)
-              ? `<small>${o.count.toLocaleString()}</small>`
-              : `<small class="facet-availability" aria-label="Available. This source is connected, but its results cannot be counted in advance." title="Source available — count not available in advance."><span aria-hidden="true"></span></small>`}
-          </label>`).join("")}
+        ${canSearch ? `<label class="facet-search">
+          <span class="visually-hidden">Search ${escapeHtml(groupLabel.toLowerCase())}</span>
+          <input type="search" value="${escapeHtml(searchTerm)}" placeholder="Search ${escapeHtml(groupLabel.toLowerCase())}" autocomplete="off">
+        </label>` : ""}
+        <div class="facet-option-list">
+          ${visibleOptions.map((o) => `
+            <label class="facet-option">
+              <span>
+                <input type="checkbox" value="${escapeHtml(o.value)}" ${selectedSet.has(o.value) ? "checked" : ""}>
+                <span>${escapeHtml(o.label)}</span>
+              </span>
+              ${Number.isFinite(o.count)
+                ? `<small>${o.count.toLocaleString()}</small>`
+                : `<small class="facet-availability" aria-label="Available. This source is connected, but its results cannot be counted in advance." title="Source available — count not available in advance."><span aria-hidden="true"></span></small>`}
+            </label>`).join("") || `<p class="facet-no-options">No matching filters</p>`}
+        </div>
+        ${hasMore && !normalizedSearch ? `<button type="button" class="facet-list-toggle" aria-expanded="${showAll}">
+          ${showAll ? "Show fewer" : `Show all ${filteredOptions.length}`}
+        </button>` : ""}
       </div>`;
 
     containerEl.querySelector(".facet-group-toggle").addEventListener("click", () => {
@@ -163,13 +205,32 @@ function initMultiselect(containerEl, options, getSelected, onChange, { defaultO
       render();
     });
 
+    const searchInput = containerEl.querySelector('.facet-search input');
+    searchInput?.addEventListener("input", () => {
+      searchTerm = searchInput.value;
+      render({ focusSearch: true });
+    });
+
+    containerEl.querySelector(".facet-list-toggle")?.addEventListener("click", () => {
+      showAll = !showAll;
+      render();
+    });
+
     containerEl.querySelectorAll('input[type="checkbox"]').forEach((cb) => {
       cb.addEventListener("change", () => {
-        const next = [...containerEl.querySelectorAll('input[type="checkbox"]:checked')].map((x) => x.value);
-        onChange(next);
+        const next = new Set(getSelected());
+        if (cb.checked) next.add(cb.value);
+        else next.delete(cb.value);
+        onChange([...next]);
         render();
       });
     });
+
+    if (focusSearch) {
+      const nextInput = containerEl.querySelector('.facet-search input');
+      nextInput?.focus();
+      nextInput?.setSelectionRange(nextInput.value.length, nextInput.value.length);
+    }
   }
   render();
   containerEl._render = render;
@@ -223,6 +284,67 @@ function formatIndexedDate(value) {
   }).format(new Date(`${value}T00:00:00Z`));
 }
 
+function formatSourceDate(value) {
+  const normalized = String(value || "").trim();
+  if (!normalized) return "";
+  if (/^\d{8}$/.test(normalized)) {
+    return formatIndexedDate(
+      `${normalized.slice(0, 4)}-${normalized.slice(4, 6)}-${normalized.slice(6, 8)}`
+    );
+  }
+  return formatIndexedDate(normalized) || normalized;
+}
+
+function readinessDisplay(value) {
+  const sourceValue = String(value || "").trim();
+  const plainStatuses = {
+    transfer: "Available for transfer",
+    prototype: "Prototype stage",
+    experimental: "Experimental stage",
+    initial: "Initial development",
+  };
+  if (plainStatuses[sourceValue.toLowerCase()]) {
+    return plainStatuses[sourceValue.toLowerCase()];
+  }
+  const trl = sourceValue.match(/\bTRL\s*[-–—:]?\s*([1-9])\b/i);
+  if (!trl) return sourceValue;
+  const level = Number(trl[1]);
+  const stage = level <= 3
+    ? "Early-stage research"
+    : level <= 6
+      ? "Development and validation"
+      : level <= 8
+        ? "Demonstration stage"
+        : "Proven in operation";
+  return `${stage} · TRL ${level}`;
+}
+
+function languageName(value) {
+  const key = String(value || "").trim().toLowerCase();
+  return {
+    en: "English",
+    english: "English",
+    ko: "Korean",
+    korean: "Korean",
+    th: "Thai",
+    thai: "Thai",
+    ms: "Malay",
+    malay: "Malay",
+  }[key] || String(value || "").trim();
+}
+
+function translationDisplay(technology) {
+  const status = String(technology.translation_status || "").toLowerCase();
+  const language = languageName(technology.language);
+  if (status.startsWith("translated")) {
+    return `Machine-translated from ${language || "the source language"}`;
+  }
+  if (language && language !== "English" && technology.source_id === "korea_ntb") {
+    return `Original ${language}`;
+  }
+  return "";
+}
+
 function flagForCountry(country, source) {
   if (country === source.country) return (SOURCE_DETAIL[source.id] || {}).flag || "";
   const matchingSource = sourcesCache.find((candidate) =>
@@ -268,7 +390,7 @@ function jstPatentLinks(technology) {
 
   return {
     destinationUrl,
-    destinationLabel: hasPatentDocument ? "View JST patent document ↗" : "Find on Google Patents ↗",
+    destinationLabel: hasPatentDocument ? "Open JST patent document ↗" : "Find on Google Patents ↗",
     officialUrl,
     hasPatentDocument,
     referenceLabel,
@@ -301,7 +423,7 @@ function compareItemForTechnology(technology, source, {
     lastIndexed: formatIndexedDate(source.last_indexed),
     language: technology.language,
     url: destinationUrl || technology.url,
-    linkLabel: destinationLabel || "View original source ↗",
+    linkLabel: destinationLabel || "Open source record ↗",
   });
 }
 
@@ -325,11 +447,20 @@ function technologyCard(technology, source) {
     : technology.summary;
 
   const jstLinks = jstPatentLinks(technology);
+  const provider = String(technology.org_name || source.institution || "").trim();
+  const readiness = readinessDisplay(technology.dev_status);
+  const sourceDate = formatSourceDate(technology.reg_date);
+  const indexedDate = formatIndexedDate(source.last_indexed);
+  const currency = indexedDate ? `Indexed ${indexedDate}` : "Live source";
+  const translationNote = translationDisplay(technology);
+  const needsTranslation = technology.language === "Korean";
+  const fact = (label, value, sourceValue = "", translatable = false) => value ? `
+    <div class="card-fact">
+      <span class="card-fact-label">${label}</span>
+      <strong class="card-fact-value${translatable ? " detail-translatable" : ""}"${sourceValue ? ` title="Source value: ${escapeHtml(sourceValue)}"` : ""}>${escapeHtml(value)}</strong>
+    </div>` : "";
   const detailRows = [
-    ["Organisation",         technology.org_name],
-    ["Standardized sectors", allSectors],
-    ["Development status",   technology.dev_status],
-    ["Source record date",   technology.reg_date],
+    ["Standardized sectors", sectorLabels.length > 1 ? allSectors : ""],
     ...(jstLinks ? [[jstLinks.referenceLabel, jstLinks.referenceDisplay]] : []),
   ]
     .filter(([, v]) => v)
@@ -340,14 +471,13 @@ function technologyCard(technology, source) {
       </div>`)
     .join("");
 
-  const needsTranslation = technology.language === "Korean";
   const cardCountry = technology.country || source.country;
   const flag = flagForCountry(cardCountry, source);
   const url = safeUrl(jstLinks?.destinationUrl || technology.url);
   const compareItem = compareItemForTechnology(technology, source, {
     sectorText: allSectors || sectorLabel || technology.sector,
     destinationUrl: url,
-    destinationLabel: jstLinks?.destinationLabel || "View original source ↗",
+    destinationLabel: jstLinks?.destinationLabel || "Open source record ↗",
     summary: cardSummary,
   });
   const compareKey = compare.itemKey(compareItem);
@@ -378,10 +508,17 @@ function technologyCard(technology, source) {
       </div>
       <h4 class="card-title">${escapeHtml(technology.title)}</h4>
       <p class="card-summary">${escapeHtml(cardSummary) || "Description available from the original source."}</p>
+      <div class="card-facts" aria-label="Key source information">
+        ${fact("Provider", provider, "", needsTranslation)}
+        ${fact("Readiness", readiness, technology.dev_status, needsTranslation)}
+        ${fact("Source date", sourceDate)}
+        ${fact("Data currency", currency)}
+      </div>
+      ${translationNote ? `<p class="card-translation-note">${escapeHtml(translationNote)}</p>` : ""}
       <div class="card-footer">
         ${detailRows ? `
           <details class="card-detail-disclosure">
-            <summary>More details</summary>
+            <summary>Additional source details</summary>
             <div class="card-detail-panel">${detailRows}${jstContactDetails}</div>
           </details>` : "<span></span>"}
         <div class="card-actions">
@@ -389,7 +526,7 @@ function technologyCard(technology, source) {
             <span aria-hidden="true">${isCompared ? "✓" : "+"}</span> ${isCompared ? "Added to compare" : "Add to compare"}
           </button>` : ""}
           ${jstLinks ? `<a class="button button-secondary card-contact-link" data-analytics-outbound="licensing_inquiry" data-analytics-source="jst_japan" href="${escapeHtml(jstLinks.inquiryUrl)}">Contact JST about licensing</a>` : ""}
-          ${url ? `<a class="button button-primary card-external-link" data-analytics-outbound="technology_record" data-analytics-source="${escapeHtml(source.id)}" href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">${jstLinks ? jstLinks.destinationLabel : "View original source ↗"}</a>` : ""}
+          ${url ? `<a class="button button-primary card-external-link" data-analytics-outbound="technology_record" data-analytics-source="${escapeHtml(source.id)}" href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">${jstLinks ? jstLinks.destinationLabel : "Open source record ↗"}</a>` : ""}
         </div>
       </div>
     </article>
@@ -427,8 +564,12 @@ async function autoTranslateCard(card) {
     card.querySelectorAll(".detail-translatable").forEach((el) => {
       translateText(el.textContent).then((t) => { el.textContent = t; });
     });
+    const translationNote = card.querySelector(".card-translation-note");
+    if (translationNote) translationNote.textContent = "Machine-translated from Korean";
     card.classList.add("translated");
   } catch {
+    const translationNote = card.querySelector(".card-translation-note");
+    if (translationNote) translationNote.textContent = "Original Korean · translation unavailable";
     card.classList.add("translation-failed");
   }
 }
@@ -585,6 +726,7 @@ async function fetchSourcePage(sourceId, backendPage, signal) {
         items: (data.results || []).filter((r) => r.source_id === sourceId),
         total: data.source_totals?.[sourceId] || 0,
         failed: (data.failed_sources || []).includes(sourceId),
+        searchMode: data.search_mode || "keyword",
       };
       // A transient upstream outage should be retried on the next render, not
       // pinned in the browser's page cache for the rest of the session.
@@ -605,7 +747,14 @@ async function fetchSourcePage(sourceId, backendPage, signal) {
 
 async function buildMergedPage(globalPage, activeIds, signal) {
   if (!activeIds.length) {
-    return { items: [], page: 1, totalAcrossSources: 0, totalPages: 1, failedSources: [] };
+    return {
+      items: [],
+      page: 1,
+      totalAcrossSources: 0,
+      totalPages: 1,
+      failedSources: [],
+      searchMode: "keyword",
+    };
   }
 
   const sourceMap = Object.fromEntries(sourcesCache.map((s) => [s.id, s]));
@@ -616,6 +765,10 @@ async function buildMergedPage(globalPage, activeIds, signal) {
   const failedSources = new Set(
     activeIds.filter((id, index) => firstPages[index].failed)
   );
+  const searchModes = firstPages.map((page) => page.searchMode);
+  const searchMode = searchModes.includes("semantic")
+    ? "semantic"
+    : searchModes.includes("expanded") ? "expanded" : "keyword";
 
   const plan = MergedPagination.buildPagePlan(
     sourceTotals,
@@ -658,16 +811,27 @@ async function buildMergedPage(globalPage, activeIds, signal) {
     totalAcrossSources: plan.totalAcrossSources,
     totalPages: plan.totalPages,
     failedSources: [...failedSources],
+    searchMode,
   };
 }
 
-function renderMergedGrid(items) {
+function renderMergedGrid(items, searchMode = "keyword") {
   visibleCompareItems.clear();
   if (!items.length) {
+    if (state.query && searchMode === "semantic") {
+      return `<div class="empty-state search-empty-state">
+        <h3>No strong matches for “${escapeHtml(state.query)}”</h3>
+        <p>We did not find a strong connection to the indexed titles or descriptions, so weak suggestions were hidden.</p>
+        <div class="empty-state-actions">
+          <button class="button button-secondary" type="button" data-clear-query>Clear search</button>
+          <a class="text-button" href="#sources">Browse source platforms</a>
+        </div>
+      </div>`;
+    }
     const heading = state.query
-      ? `No technologies available for "${escapeHtml(state.query)}"`
+      ? `No technologies available for “${escapeHtml(state.query)}”`
       : "No matching technologies found";
-    return `<div class="empty-state"><h3>${heading}</h3><p>Try a broader keyword or clear one of the filters.</p></div>`;
+    return `<div class="empty-state search-empty-state"><h3>${heading}</h3><p>Try a broader keyword or clear one of the filters.</p></div>`;
   }
   return `<div class="technology-list merged-grid view-${state.resultsView}">
     ${items.map(({ tech, source }) => technologyCard(tech, source)).join("")}
@@ -706,6 +870,8 @@ function renderCompareTray() {
   const count = state.compareItems.length;
   els.compareTray.hidden = count === 0;
   document.body.classList.toggle("has-compare-tray", count > 0);
+  document.body.classList.toggle("compare-tray-collapsed", count > 0 && state.compareTrayCollapsed);
+  els.compareTray.classList.toggle("is-collapsed", state.compareTrayCollapsed);
   els.compareCount.textContent = `${count} of ${compare.LIMIT} selected`;
   els.compareOpenButton.disabled = count < 2;
   els.compareOpenButton.textContent = count < 2 ? "Select one more" : `Compare ${count} technologies`;
@@ -717,6 +883,11 @@ function renderCompareTray() {
         <button type="button" data-compare-remove="${escapeHtml(key)}" aria-label="Remove ${escapeHtml(item.title)} from comparison">×</button>
       </span>`;
   }).join("");
+  const trayToggle = els.compareTray.querySelector("[data-compare-tray-toggle]");
+  if (trayToggle) {
+    trayToggle.setAttribute("aria-expanded", String(!state.compareTrayCollapsed));
+    trayToggle.textContent = state.compareTrayCollapsed ? "Show selections" : "Hide selections";
+  }
   updateCompareButtons();
 }
 
@@ -733,7 +904,6 @@ function renderComparePage() {
   if (items.length < 2) {
     els.comparePageContent.innerHTML = `
       <div class="compare-page-empty">
-        <span class="section-kicker">Technology comparison</span>
         <h1 id="compare-page-title">Choose at least two technologies</h1>
         <p>Add another technology from the search results to compare the available metadata side by side.</p>
         <button class="button button-primary" type="button" data-compare-close>Return to search results</button>
@@ -758,11 +928,33 @@ function renderComparePage() {
     ? `<a href="${escapeHtml(item.url)}" target="_blank" rel="noopener noreferrer" data-analytics-outbound="technology_record" data-analytics-source="${escapeHtml(item.sourceId)}">${escapeHtml(item.linkLabel || "View original source ↗")}</a>`
     : missingCompareValue()}</td>`).join("");
 
+  const mobileValues = (field, { links = false } = {}) => items.map((item) => `
+    <div class="compare-mobile-value">
+      <div class="compare-mobile-technology">
+        <span>${escapeHtml(item.sourceName)}</span>
+        <h3>${escapeHtml(item.title)}</h3>
+      </div>
+      <div>${links
+        ? item.url
+          ? `<a href="${escapeHtml(item.url)}" target="_blank" rel="noopener noreferrer" data-analytics-outbound="technology_record" data-analytics-source="${escapeHtml(item.sourceId)}">${escapeHtml(item.linkLabel || "View original source ↗")}</a>`
+          : missingCompareValue()
+        : compareTextCell(item, field)}</div>
+    </div>`).join("");
+
+  const mobileField = (label, field, { collapsible = false, links = false } = {}) => collapsible
+    ? `<details class="compare-mobile-field compare-mobile-field-collapsible">
+        <summary>${label}<span>Show summaries</span></summary>
+        <div class="compare-mobile-values">${mobileValues(field, { links })}</div>
+      </details>`
+    : `<section class="compare-mobile-field">
+        <h2>${label}</h2>
+        <div class="compare-mobile-values">${mobileValues(field, { links })}</div>
+      </section>`;
+
   els.comparePageContent.innerHTML = `
     <header class="compare-page-heading">
-      <span class="section-kicker">Technology comparison</span>
       <h1 id="compare-page-title">Compare selected technologies</h1>
-      <p>Compare the metadata available from each source. Missing information does not mean a feature is unavailable; it means the source did not provide that field.</p>
+      <p>${items.length} technologies selected. Missing information means the source did not provide that field.</p>
     </header>
     <p class="compare-scroll-hint">Swipe horizontally to view every selected technology.</p>
     <div class="compare-table-wrap" tabindex="0" aria-label="Scrollable technology comparison table">
@@ -789,6 +981,16 @@ function renderComparePage() {
         </tbody>
       </table>
     </div>
+    <div class="compare-mobile-fields" aria-label="Technology comparison by field">
+      ${mobileField("Summary", "summary", { collapsible: true })}
+      ${mobileField("Country", "country")}
+      ${mobileField("Standardized sector", "sectors")}
+      ${mobileField("Organisation", "organisation")}
+      ${mobileField("Source record date", "recordDate")}
+      ${mobileField("Last indexed by APTG", "lastIndexed")}
+      ${mobileField("Source platform", "sourceName")}
+      ${mobileField("Full record", "url", { links: true })}
+    </div>
     <p class="compare-authority-note">Original source platforms remain authoritative. Verify current details and availability before making decisions.</p>`;
 }
 
@@ -797,8 +999,8 @@ function setComparePageOpen(isOpen) {
   els.comparePage.setAttribute("aria-hidden", String(!isOpen));
   document.body.classList.toggle("compare-dialog-open", isOpen);
   const main = document.querySelector("main");
-  if (main) main.inert = isOpen;
-  els.compareTray.inert = isOpen;
+  setElementInert(main, isOpen);
+  setElementInert(els.compareTray, isOpen);
 }
 
 function openComparePage() {
@@ -1131,6 +1333,26 @@ function getRedirectSources() {
 let lastActiveIds = [];
 let renderResultsToken = 0;
 
+function updateSearchMethodNote(searchMode, total) {
+  if (!els.searchMethod) return;
+  if (!state.query) {
+    els.searchMethod.hidden = true;
+    els.searchMethod.textContent = "";
+    return;
+  }
+
+  els.searchMethod.hidden = false;
+  if (searchMode === "semantic") {
+    els.searchMethod.textContent = total
+      ? "Results may include closely related concepts, not only exact words. Weak matches are hidden."
+      : "No strong matches were found. Weak suggestions were hidden rather than presented as results.";
+  } else if (searchMode === "expanded") {
+    els.searchMethod.textContent = "Results may include related technical terms, not only the exact words entered.";
+  } else {
+    els.searchMethod.textContent = "Results currently match the words entered. Related-concept search is temporarily unavailable.";
+  }
+}
+
 function mergedGridHeader(activeIds, mergedPage, totalPages, totalAcrossSources) {
   return `
     <header class="group-header">
@@ -1167,7 +1389,10 @@ async function renderResults() {
     ? `Results for "${state.query}"`
     : focusLabel || "Technology search results";
   els.summary.textContent = "Searching across source platforms…";
+  updateSearchMethodNote("keyword", 0);
+  if (els.searchMethod) els.searchMethod.hidden = true;
   els.results.innerHTML = `<div class="empty-state"><p>Loading results…</p></div>`;
+  if (els.resultsTrust) els.resultsTrust.hidden = true;
   updateStatsBar(0, 0, 0);
   renderSourceChips();
 
@@ -1210,6 +1435,7 @@ async function renderResults() {
   // indexed source information (name, coverage, counts) rather than
   // flooding the page with an unrequested pile of technology cards.
   const isBlankState = !hasActiveSearch();
+  if (els.resultsTrust) els.resultsTrust.hidden = isBlankState;
 
   if (isBlankState) {
     els.results.innerHTML = `
@@ -1220,7 +1446,7 @@ async function renderResults() {
     els.summary.textContent = "Explore technology information indexed from source platforms.";
   } else {
     const redirectHtml = redirectSources.map(redirectSourceBlock).join("");
-    const gridHtml = renderMergedGrid(merged.items);
+    const gridHtml = renderMergedGrid(merged.items, merged.searchMode);
     const paginationHtml = merged.items.length ? renderPaginationBar(merged.page, merged.totalPages) : "";
     const partialHtml = merged.failedSources.length
       ? `<p class="results-warning" role="status">Some source platforms could not be reached. The results shown are partial; please try again later.</p>`
@@ -1243,6 +1469,7 @@ async function renderResults() {
   const totalCountries = new Set(filterableIds.map((id) => sourceMap[id]?.country).filter(Boolean)).size;
   const searchableSourceCount = filterableIds.length;
   updateStatsBar(merged.totalAcrossSources, searchableSourceCount, totalCountries);
+  updateSearchMethodNote(merged.searchMode, merged.totalAcrossSources);
   if (!isBlankState) {
     els.title.textContent = state.query
       ? `${merged.totalAcrossSources.toLocaleString()} results for "${state.query}"`
@@ -1626,24 +1853,70 @@ els.activeFilters?.addEventListener("click", (event) => {
   renderResults();
 });
 
+const mobileFilterMedia = window.matchMedia("(max-width: 900px)");
+let filterSheetReturnFocus = null;
+
+function syncFilterSheetAccessibility() {
+  const isMobile = mobileFilterMedia.matches;
+  const isOpen = isMobile && els.filters.classList.contains("open");
+  if (isMobile) {
+    els.filters.setAttribute("role", "dialog");
+    els.filters.setAttribute("aria-modal", "true");
+    setElementInert(els.filters, !isOpen);
+    els.filters.setAttribute("aria-hidden", String(!isOpen));
+  } else {
+    els.filters.removeAttribute("role");
+    els.filters.removeAttribute("aria-modal");
+    setElementInert(els.filters, false);
+    els.filters.removeAttribute("aria-hidden");
+    els.filters.classList.remove("open");
+    els.filterBackdrop.classList.remove("visible");
+    els.filterBackdrop.hidden = true;
+    setElementInert(els.compareTray, els.comparePage.classList.contains("open"));
+    document.body.classList.remove("filter-drawer-open");
+  }
+  els.mobileFilterButton?.setAttribute("aria-expanded", String(isOpen));
+}
+
 function openFilterSheet() {
+  filterSheetReturnFocus = document.activeElement;
   syncFacetControls();
   els.filters.classList.add("open");
+  setElementInert(els.filters, false);
+  els.filters.setAttribute("aria-hidden", "false");
+  els.mobileFilterButton?.setAttribute("aria-expanded", "true");
   els.filterBackdrop.hidden = false;
-  requestAnimationFrame(() => els.filterBackdrop.classList.add("visible"));
+  setElementInert(els.compareTray, true);
+  document.body.classList.add("filter-drawer-open");
+  requestAnimationFrame(() => {
+    els.filterBackdrop.classList.add("visible");
+    els.filters.querySelector(".filter-close")?.focus();
+  });
 }
 
 function closeFilterSheet() {
+  const wasOpen = els.filters.classList.contains("open");
   els.filters.classList.remove("open");
+  setElementInert(els.filters, mobileFilterMedia.matches);
+  if (mobileFilterMedia.matches) els.filters.setAttribute("aria-hidden", "true");
+  els.mobileFilterButton?.setAttribute("aria-expanded", "false");
   els.filterBackdrop.classList.remove("visible");
+  setElementInert(els.compareTray, els.comparePage.classList.contains("open"));
+  document.body.classList.remove("filter-drawer-open");
   setTimeout(() => {
     if (!els.filters.classList.contains("open")) els.filterBackdrop.hidden = true;
   }, 200);
+  if (wasOpen && filterSheetReturnFocus instanceof HTMLElement && filterSheetReturnFocus.isConnected) {
+    filterSheetReturnFocus.focus();
+  }
+  filterSheetReturnFocus = null;
 }
 
-document.querySelector(".mobile-filter-button").addEventListener("click", openFilterSheet);
+els.mobileFilterButton.addEventListener("click", openFilterSheet);
 document.querySelector(".filter-close").addEventListener("click", closeFilterSheet);
 els.filterBackdrop.addEventListener("click", closeFilterSheet);
+mobileFilterMedia.addEventListener?.("change", syncFilterSheetAccessibility);
+syncFilterSheetAccessibility();
 
 els.resetFilters.addEventListener("click", () => {
   cancelScheduledFilterRender();
@@ -1792,6 +2065,15 @@ window.addEventListener("popstate", (e) => {
 });
 
 document.addEventListener("click", (event) => {
+  if (event.target.closest("[data-clear-query]")) {
+    state.query = "";
+    state.mergedPage = 1;
+    els.input.value = "";
+    renderResults();
+    els.input.focus();
+    return;
+  }
+
   const compareToggle = event.target.closest("[data-compare-toggle]");
   if (compareToggle) {
     toggleComparedItem(compareToggle.dataset.compareToggle);
@@ -1809,6 +2091,12 @@ document.addEventListener("click", (event) => {
     renderCompareTray();
     if (els.comparePage.classList.contains("open")) renderComparePage();
     announceCompare("Comparison cleared.");
+    return;
+  }
+
+  if (event.target.closest("[data-compare-tray-toggle]")) {
+    state.compareTrayCollapsed = !state.compareTrayCollapsed;
+    renderCompareTray();
     return;
   }
 
@@ -1854,6 +2142,31 @@ document.addEventListener("click", (event) => {
 });
 
 document.addEventListener("keydown", (event) => {
+  if (mobileFilterMedia.matches && els.filters.classList.contains("open")) {
+    if (event.key === "Escape") {
+      event.preventDefault();
+      closeFilterSheet();
+      return;
+    }
+    if (event.key === "Tab") {
+      const focusable = [...els.filters.querySelectorAll(
+        'input:not([disabled]), button:not([disabled]), [tabindex]:not([tabindex="-1"])'
+      )].filter((element) => !element.hidden && element.getClientRects().length);
+      if (focusable.length) {
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+        if (event.shiftKey && document.activeElement === first) {
+          event.preventDefault();
+          last.focus();
+        } else if (!event.shiftKey && document.activeElement === last) {
+          event.preventDefault();
+          first.focus();
+        }
+      }
+    }
+    return;
+  }
+
   if (els.comparePage.classList.contains("open")) {
     if (event.key === "Escape") {
       event.preventDefault();

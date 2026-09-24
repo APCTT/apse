@@ -17,8 +17,8 @@ class JSTJapanSource(StaticJSONSource):
     org_default = "JST"
     encoding = "utf-8"
 
-    def _to_technology(self, rec: dict):
-        technology = super()._to_technology(rec)
+    def _to_technology(self, rec: dict, match_reason: str = ""):
+        technology = super()._to_technology(rec, match_reason)
         reference_id = str(rec.get("patent_no", "")).strip()
         has_granted_patent = reference_id.isdigit()
         official_url = (
