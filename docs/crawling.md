@@ -1,7 +1,7 @@
 # Crawled source index operations
 
 The production API does not crawl source websites during a user request.
-Eight source indexes are committed as JSON under `backend/sources/data/` and
+Nine source indexes are committed as JSON under `backend/sources/data/` and
 loaded by `StaticJSONSource`. This keeps the Render web service small and
 avoids a paid background worker or database.
 
@@ -21,6 +21,7 @@ safeguarded crawlers shown below write staging snapshots by default.
 | NRDC India | `python -m backend.sources.crawl_nrdc` | `nrdc_india.staging.json` | 2026-08-10 |
 | ITI Sri Lanka | `python scripts/crawl_iti_sri_lanka.py --output backend/sources/data/iti_sri_lanka.json --replace-production` | `iti_sri_lanka.json` | 2026-08-10 |
 | Malaysia R&D Commercialisation Portal | `python scripts/crawl_malaysia_rd_portal.py --output backend/sources/data/malaysia_rd_portal.json --replace-production` | `malaysia_rd_portal.json` | 2026-08-12 |
+| NTU Singapore Tech Offers | `python scripts/crawl_ntu_singapore.py --output backend/sources/data/ntu_singapore.json --replace-production` | `ntu_singapore.json` | 2026-10-08 |
 | APCTT Technology Offers | `python scripts/crawl_apctt.py --output backend/sources/data/apctt.json --replace-production` | `apctt.json` | 2026-09-11 |
 
 `scripts/crawl_slintec.py` is orphaned: the Slintec source and its output data
@@ -99,6 +100,13 @@ the production replacement is refused without the explicit flag. The full
 1,027-record snapshot uses 65 requests at the default batch size and keeps its
 checkpoint outside version control.
 
+The NTU Singapore crawler reads the public paginated service used by NTU's
+Tech Offers page, then visits each public detail page for the complete synopsis,
+source category, TRL and inventor names. It does not copy images or contact
+details. It writes staging output by default, requires at least 180 records,
+checks pagination completeness and blocks production replacement unless the
+explicit flags in the table are supplied.
+
 Tech2Biz writes `backend/sources/data/tech2biz.staging.json` by default and
 preserves the original Thai title and description. MyMemory translation is
 optional (`--translate-mymemory`); quota and error messages are rejected and
@@ -125,7 +133,7 @@ does not replace the production index.
 
 Start with a reviewed manual refresh rather than an unattended schedule:
 
-- CSIR, DOST-TAPI, JST, NRDC, ITI, the Malaysia portal, and APCTT: monthly
+- CSIR, DOST-TAPI, JST, NRDC, ITI, the Malaysia portal, NTU Singapore, and APCTT: monthly
 - Tech2Biz: every two or three months because the translation step is slower
   and depends on a third-party free quota
 - Live API source (Korea NTB): do not crawl; keep the existing on-demand API

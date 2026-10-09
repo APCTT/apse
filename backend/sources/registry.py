@@ -8,6 +8,7 @@ from backend.sources.nrdc_india import NRDCIndiaSource
 from backend.sources.apctt import create_apctt_source
 from backend.sources.iti_sri_lanka import ITISriLankaSource
 from backend.sources.malaysia_rd_portal import MalaysiaRDPortalSource
+from backend.sources.ntu_singapore import NTUSingaporeSource
 from backend.config import settings
 
 _csir = CSIRIndiaSource()
@@ -21,6 +22,7 @@ _apctt = create_apctt_source(
 )
 _iti_sri_lanka = ITISriLankaSource()
 _malaysia_rd_portal = MalaysiaRDPortalSource()
+_ntu_singapore = NTUSingaporeSource()
 
 SOURCES = [
     *([KoreaNTBSource()] if settings.KOREA_NTB_API_KEY else []),
@@ -32,6 +34,7 @@ SOURCES = [
     _nrdc,
     _iti_sri_lanka,
     _malaysia_rd_portal,
+    _ntu_singapore,
     _apctt,
 ]
 

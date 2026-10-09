@@ -1600,6 +1600,13 @@ const SOURCE_DETAIL = {
     coverage: "Malaysia — R&D products and technologies from companies, universities, research institutes, and public agencies represented through the MySTI and Malaysia Commercialisation Year programmes.",
     searchHint: "Search by product or technology name, description, provider, application area, or portal category. Open the original portal record for current commercialisation and contact information.",
   },
+  ntu_singapore: {
+    flag: "🇸🇬",
+    sizeLabel: "technology offers",
+    description: "Public technology offers from Nanyang Technological University (NTU Singapore), including source-provided synopses, categories and technology readiness levels where available.",
+    coverage: "Singapore — research-based technologies presented by NTU for industry collaboration, intellectual-property access and commercialisation across digital, health, energy, environment, manufacturing and advanced materials fields.",
+    searchHint: "Search by technology, application, inventor or NTU category. Open the original NTU Tech Portal record for complete technical information and enquiries.",
+  },
 };
 
 function sourceDetailCard(source, representedCount) {

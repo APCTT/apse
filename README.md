@@ -81,6 +81,7 @@ themes so totals and pagination stay accurate.
 | NRDC India | India | Reviewed crawler snapshot stored as JSON |
 | ITI Technology Bank | Sri Lanka | Reviewed crawler snapshot stored as JSON |
 | Malaysia R&D Commercialisation Portal | Malaysia | Reviewed public-catalogue snapshot stored as JSON; Malay fields translated to English with originals preserved; contact fields omitted |
+| NTU Singapore Tech Offers | Singapore | Reviewed public-catalogue snapshot stored as JSON; source synopsis, category and TRL retained; contact details and images omitted |
 | APCTT Technology Offers | Asia and the Pacific | Reviewed public-catalogue snapshot stored as JSON; contact fields omitted |
 
 Source websites remain authoritative. Crawled snapshots can lag behind their
@@ -306,6 +307,13 @@ retained: set `APCTT_SOURCE_MODE=live` in the backend environment and restart
 or redeploy the service. Live mode automatically falls back to the reviewed
 snapshot if the upstream request fails; set it back to `snapshot` to disable
 all request-time APCTT calls.
+
+NTU Singapore uses the public paginated endpoint that powers its Tech Offers
+page. `scripts/crawl_ntu_singapore.py` then visits the public detail pages to
+retain the complete synopsis, source categories, TRL and inventor names for
+discovery. Images and contact details are not copied. NTU's broad categories
+are conservatively mapped to ISO ICS; `Emerging Technologies` remains
+unclassified unless another source category provides a supported mapping.
 
 ## Known limitations
 
